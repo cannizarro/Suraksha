@@ -44,14 +44,27 @@
             android:layout_height="fill_parent"
             android:layout_marginLeft="4dp"
             android:layout_marginTop="8dp"
-            android:layout_marginRight="8dp"
+            android:layout_marginRight="4dp"
             android:layout_marginBottom="8dp"
             android:layout_weight="1.0"
             android:background="@color/colorPrimaryDark"
             android:drawableLeft="@drawable/no_mobile"
-            android:editable="false"
             android:fontFamily="serif-monospace"
             android:text="Dim Screen"
+            android:textSize="18sp" />
+        <Button
+            android:id="@+id/online"
+            android:layout_width="0.0dip"
+            android:layout_height="fill_parent"
+            android:layout_marginLeft="4dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginRight="8dp"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="1.0"
+            android:background="@color/colorPrimaryDark"
+            android:drawableLeft="@drawable/antenna"
+            android:fontFamily="serif-monospace"
+            android:text="Online"
             android:textSize="18sp" />
 
     </LinearLayout>

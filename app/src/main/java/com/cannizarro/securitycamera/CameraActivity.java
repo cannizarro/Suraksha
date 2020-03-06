@@ -1,12 +1,14 @@
 package com.cannizarro.securitycamera;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
@@ -16,12 +18,14 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.text.InputType;
 import android.text.Layout;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -40,14 +44,15 @@ public class CameraActivity extends AppCompatActivity {
     final String TAG = "CameraActivity";
     final int ALL_PERMISSIONS_CODE = 1;
     static final int MEDIA_TYPE_VIDEO = 1;
-    private boolean isRecording = false, isScreenOn=true;
+    private boolean isRecording = false, isScreenOn=true, isInitiator=false;
+    private String username, roomname;
 
     private File file;
     private Camera camera;
     private MediaRecorder mediaRecorder;
 
     private View window;
-    private Button captureButton, screenOff;
+    private Button captureButton, screenOff, online;
     private CameraPreview cameraPreview;
 
     FirebaseDatabase firebaseDatabase;
@@ -58,6 +63,12 @@ public class CameraActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
 
+        Intent intent = getIntent();
+        username = intent.getStringExtra("username");
+
+        firebaseDatabase = FirebaseDatabase.getInstance();
+
+        online = findViewById(R.id.online);
         captureButton = findViewById(R.id.save);
         screenOff = findViewById(R.id.screenOff);
         window = findViewById(R.id.window);
@@ -89,6 +100,13 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 controlRecording();
+            }
+        });
+
+        online.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                streamOnline();
             }
         });
 
@@ -145,6 +163,42 @@ public class CameraActivity extends AppCompatActivity {
         preview.addView(cameraPreview);
         //prepareVideoRecorder();
     }
+
+
+    private void streamOnline(){
+        // Set up the input
+        final EditText input = new EditText(this);
+
+        new AlertDialog.Builder(this)
+                .setIcon(R.drawable.sign_out)
+                .setTitle("Set camera name.")
+                .setMessage("If you want to go online, please set this camera's name.")
+                .setView(input)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        roomname = input.getText().toString();
+                        databaseReference = firebaseDatabase.getReference(username + "/" + roomname + "/");
+                        isInitiator = true;
+                        startStream();
+                        showToast("Camera name set", getApplicationContext());
+                    }
+                })
+                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.cancel();
+                    }
+                })
+                .show();
+
+
+    }
+
+    private void startStream(){
+
+    }
+
 
     private boolean prepareVideoRecorder(){
 

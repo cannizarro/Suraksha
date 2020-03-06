@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if(hasCamera){
                     intent = new Intent(getApplicationContext(), CameraActivity.class);
+                    intent.putExtra("username", username);
                     startActivity(intent);
                 }
                 else{
