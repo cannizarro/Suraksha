@@ -1,12 +1,15 @@
 package com.cannizarro.securitycamera;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -14,14 +17,19 @@ import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
+import android.media.effect.Effect;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.text.Layout;
+import android.util.Base64;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -30,13 +38,46 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import org.webrtc.AudioSource;
+import org.webrtc.AudioTrack;
+import org.webrtc.Camera1Enumerator;
+import org.webrtc.CameraEnumerator;
+import org.webrtc.DefaultVideoDecoderFactory;
+import org.webrtc.DefaultVideoEncoderFactory;
+import org.webrtc.EglBase;
+import org.webrtc.IceCandidate;
+import org.webrtc.Logging;
+import org.webrtc.MediaConstraints;
+import org.webrtc.MediaStream;
+import org.webrtc.MediaStreamTrack;
+import org.webrtc.PeerConnection;
+import org.webrtc.PeerConnectionFactory;
+import org.webrtc.SessionDescription;
+import org.webrtc.SurfaceTextureHelper;
+import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoCapturer;
+import org.webrtc.VideoSource;
+import org.webrtc.VideoTrack;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
 
 
 public class CameraActivity extends AppCompatActivity {
@@ -44,19 +85,35 @@ public class CameraActivity extends AppCompatActivity {
     final String TAG = "CameraActivity";
     final int ALL_PERMISSIONS_CODE = 1;
     static final int MEDIA_TYPE_VIDEO = 1;
-    private boolean isRecording = false, isScreenOn=true, isInitiator=false;
-    private String username, roomname;
+    private boolean isRecording = false, isScreenOn=true, isInitiator=false, isChannelReady=false, isStarted=false, gotUserMedia=false;
+    private String username, cameraName;
+    PeerConnection localPeer;
+    List<IceServer> iceServers;
+    List<PeerConnection.IceServer> peerIceServers = new ArrayList<>();
+    PeerConnectionFactory peerConnectionFactory;
+    MediaConstraints audioConstraints;
+    MediaConstraints videoConstraints;
+    MediaConstraints sdpConstraints;
+    VideoSource videoSource;
+    VideoTrack localVideoTrack;
+    AudioSource audioSource;
+    AudioTrack localAudioTrack;
+    public static EglBase rootEglBase;
+    SurfaceTextureHelper surfaceTextureHelper;
+    MediaStream stream;
+    private final SparseArray<MediaRecorderImpl> mediaRecorders = new SparseArray<>();
+    MediaRecorderImpl mediaRecorder;
 
     private File file;
-    private Camera camera;
-    private MediaRecorder mediaRecorder;
 
     private View window;
+    SurfaceViewRenderer localVideoView;
     private Button captureButton, screenOff, online;
-    private CameraPreview cameraPreview;
 
     FirebaseDatabase firebaseDatabase;
-    DatabaseReference databaseReference;
+    DatabaseReference insideCameraRef;
+    ChildEventListener listener;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,12 +123,17 @@ public class CameraActivity extends AppCompatActivity {
         Intent intent = getIntent();
         username = intent.getStringExtra("username");
 
-        firebaseDatabase = FirebaseDatabase.getInstance();
+        firebaseDatabase = MainActivity.firebaseDatabase;
+
+        rootEglBase = EglBase.create();
+
 
         online = findViewById(R.id.online);
         captureButton = findViewById(R.id.save);
         screenOff = findViewById(R.id.screenOff);
         window = findViewById(R.id.window);
+
+        //start();
 
         window.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -106,7 +168,16 @@ public class CameraActivity extends AppCompatActivity {
         online.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                streamOnline();
+                if(isChannelReady){
+                    isChannelReady=false;
+                    hangup();
+                    online.setText("Online");
+                }
+                else{
+                    isChannelReady=true;
+                    streamOnline();
+                    online.setText("Stop");
+                }
             }
         });
 
@@ -142,26 +213,88 @@ public class CameraActivity extends AppCompatActivity {
     }
 
 
-    @Override
+    /*@Override
     protected void onPause() {
         super.onPause();
-        releaseMediaRecorder();       // if you are using MediaRecorder, release it first
-        releaseCamera();              // release the camera immediately on pause event
+        stopRecording(1);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         start();
+    }*/
+
+    public void initViews(){
+        localVideoView = findViewById(R.id.local_gl_surface_view);
+        localVideoView.init(rootEglBase.getEglBaseContext(), null);
+        localVideoView.setZOrderMediaOverlay(true);
     }
 
     public void start(){
 
-        camera = getCameraInstance();
-        cameraPreview = new CameraPreview(CameraActivity.this, camera);
-        FrameLayout preview = findViewById(R.id.camera_preview);
-        preview.addView(cameraPreview);
-        //prepareVideoRecorder();
+        initViews();
+        getIceServers();
+
+        PeerConnectionFactory.InitializationOptions initializationOptions =
+                PeerConnectionFactory.InitializationOptions.builder(this)
+                        .createInitializationOptions();
+        PeerConnectionFactory.initialize(initializationOptions);
+
+        //Create a new PeerConnectionFactory instance - using Hardware encoder and decoder.
+        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        DefaultVideoEncoderFactory defaultVideoEncoderFactory = new DefaultVideoEncoderFactory(
+                rootEglBase.getEglBaseContext(),  /* enableIntelVp8Encoder */true,  /* enableH264HighProfile */true);
+        DefaultVideoDecoderFactory defaultVideoDecoderFactory = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+        peerConnectionFactory = PeerConnectionFactory.builder()
+                .setVideoEncoderFactory(defaultVideoEncoderFactory)
+                .setVideoDecoderFactory(defaultVideoDecoderFactory)
+                .setOptions(options)
+                .createPeerConnectionFactory();
+
+
+        //Now create a VideoCapturer instance.
+        VideoCapturer videoCapturerAndroid;
+        videoCapturerAndroid = createCameraCapturer(new Camera1Enumerator(false));
+
+
+        //Create MediaConstraints - Will be useful for specifying video and audio constraints.
+        audioConstraints = new MediaConstraints();
+        videoConstraints = new MediaConstraints();
+
+        surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+
+        //Create a VideoSource instance
+        if (videoCapturerAndroid != null) {
+            videoSource = peerConnectionFactory.createVideoSource(videoCapturerAndroid.isScreencast());
+        }
+
+        videoCapturerAndroid.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
+
+        localVideoTrack = peerConnectionFactory.createVideoTrack("100", videoSource);
+
+        //create an AudioSource instance
+        audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
+        localAudioTrack = peerConnectionFactory.createAudioTrack("101", audioSource);
+
+        surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+
+        if (videoCapturerAndroid != null) {
+            videoCapturerAndroid.startCapture(1024, 720, 30);
+        }
+
+        // And finally, with our VideoRenderer ready, we
+        // can add our renderer to the VideoTrack.
+        localVideoTrack.addSink(localVideoView);
+
+
+        stream = peerConnectionFactory.createLocalMediaStream("102");
+        stream.addTrack(localVideoTrack);
+
+
+        gotUserMedia = true;
+        showToast("Got local media");
+
     }
 
 
@@ -177,11 +310,18 @@ public class CameraActivity extends AppCompatActivity {
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
-                        roomname = input.getText().toString();
-                        databaseReference = firebaseDatabase.getReference(username + "/" + roomname + "/");
+                        cameraName = input.getText().toString();
+                        insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
                         isInitiator = true;
-                        startStream();
-                        showToast("Camera name set", getApplicationContext());
+
+                        if(isInitiator){
+                            onTryToStart();
+                            Log.d("Hello", "onTryToStart() executed, is initiator is true");
+                        }
+
+                        attachReadListener();
+
+                        showToast("Camera name set");
                     }
                 })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -194,80 +334,359 @@ public class CameraActivity extends AppCompatActivity {
 
 
     }
+/**
+ * Methods related to streaming
+**/
+    private void getIceServers() {
+        //get Ice servers using xirsys
+        byte[] data = new byte[0];
+        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
+        String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
+        Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
+            @Override
+            public void onResponse(@NonNull Call<TurnServerPojo> call, @NonNull Response<TurnServerPojo> response) {
+                TurnServerPojo body = response.body();
+                if (body != null) {
+                    iceServers = body.iceServerList.iceServers;
+                }
+                for (IceServer iceServer : iceServers) {
+                    if (iceServer.credential == null) {
+                        PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(iceServer.url).createIceServer();
+                        peerIceServers.add(peerIceServer);
+                    } else {
+                        PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(iceServer.url)
+                                .setUsername(iceServer.username)
+                                .setPassword(iceServer.credential)
+                                .createIceServer();
+                        peerIceServers.add(peerIceServer);
+                    }
+                }
+                Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
+            }
 
-    private void startStream(){
+            @Override
+            public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
+                t.printStackTrace();
+            }
+        });
+    }
+
+    /**
+     * This method will be called directly by the app when it is the initiator and has got the local media
+     * or when the remote peer sends a message through socket that it is ready to transmit AV data
+     */
+
+    public void onTryToStart() {
+        runOnUiThread(() -> {
+            if (!isStarted && localVideoTrack != null && isChannelReady) {
+                createPeerConnection();
+                Log.d("Hello", "CreatePeerConnection is called");
+                isStarted = true;
+                if(isInitiator){
+                    doCall();
+                    Log.d("Hello", "doCall is called");
+                }
+            }
+        });
+    }
+
+
+    /**
+     * Creating the local peerconnection instance
+     */
+    private void createPeerConnection() {
+        PeerConnection.RTCConfiguration rtcConfig =
+                new PeerConnection.RTCConfiguration(peerIceServers);
+        // TCP candidates are only useful when connecting to a server that supports
+        // ICE-TCP.
+        rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.DISABLED;
+        rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
+        rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
+        rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+        // Use ECDSA encryption.
+        rtcConfig.keyType = PeerConnection.KeyType.ECDSA;
+        localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, new CustomPeerConnectionObserver("localPeerCreation") {
+            @Override
+            public void onIceCandidate(IceCandidate iceCandidate) {
+                super.onIceCandidate(iceCandidate);
+                onIceCandidateReceived(iceCandidate);
+            }
+
+            @Override
+            public void onAddStream(MediaStream mediaStream) {
+                showToast("Received Remote stream");
+                super.onAddStream(mediaStream);
+            }
+        });
+
+        addStreamToLocalPeer();
+    }
+
+    /**
+     * Adding the stream to the localpeer
+     */
+    private void addStreamToLocalPeer() {
+        //creating local mediastream
+        MediaStream stream = peerConnectionFactory.createLocalMediaStream("102");
+        stream.addTrack(localAudioTrack);
+        stream.addTrack(localVideoTrack);
+        localPeer.addStream(stream);
+    }
+
+    /**
+     * This method is called when the app is initiator - We generate the offer and send it over through socket
+     * to remote peer
+     */
+    private void doCall() {
+        sdpConstraints = new MediaConstraints();
+        sdpConstraints.mandatory.add(
+                new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair(
+                "OfferToReceiveVideo", "true"));
+        localPeer.createOffer(new CustomSdpObserver("localCreateOffer") {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                super.onCreateSuccess(sessionDescription);
+                localPeer.setLocalDescription(new CustomSdpObserver("localSetLocalDesc"), sessionDescription);
+                Log.d("onCreateSuccess", "SignallingClient emit ");
+                emitMessage(sessionDescription, cameraName);
+            }
+        }, sdpConstraints);
+    }
+
+
+    /**
+     * Received local ice candidate. Send it to remote peer through signalling for negotiation
+     */
+    public void onIceCandidateReceived(IceCandidate iceCandidate) {
+        //we have received ice candidate. We can set it to the other peer.
+        emitIceCandidate(iceCandidate, cameraName);
+    }
+
+
+    /**
+     * Called when remote peer sends offer
+     */
+    public void onOfferReceived(final SDP data) {
+        showToast("Received Offer");
+        runOnUiThread(() -> {
+            if (!isInitiator && !isStarted) {
+                onTryToStart();
+            }
+
+            localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.OFFER, data.sdp));
+            doAnswer();
+        });
+    }
+
+    private void doAnswer() {
+        localPeer.createAnswer(new CustomSdpObserver("localCreateAns") {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                super.onCreateSuccess(sessionDescription);
+                localPeer.setLocalDescription(new CustomSdpObserver("localSetLocal"), sessionDescription);
+                emitMessage(sessionDescription, cameraName);
+            }
+        }, new MediaConstraints());
+    }
+
+    /**
+     * Called when remote peer sends answer to your offer
+     */
+
+    public void onAnswerReceived(SDP data) {
+        showToast("Received Answer");
+        localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.fromCanonicalForm(data.type.toLowerCase()), data.sdp));
+
+    }
+
+    /**
+     * Remote IceCandidate received
+     */
+    public void onIceCandidateReceived(SDP data) {
+
+        localPeer.addIceCandidate(new IceCandidate(data.id, data.label, data.candidate));
 
     }
 
 
-    private boolean prepareVideoRecorder(){
-
-        mediaRecorder = new MediaRecorder();
-
-        // Step 1: Unlock and set camera to MediaRecorder
-        camera.unlock();
-        mediaRecorder.setCamera(camera);
-
-        // Step 2: Set sources
-        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
-        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-
-        // Step 3: Set a CamcorderProfile (requires API Level 8 or higher)
-        mediaRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_480P));
-
-        // Step 4: Set output file
-        file = getOutputMediaFile(MEDIA_TYPE_VIDEO);
-        mediaRecorder.setOutputFile(file.toString());
-
-        // Step 5: Set the preview output
-        mediaRecorder.setPreviewDisplay(cameraPreview.getHolder().getSurface());
-
-        // Step 6: Prepare configured MediaRecorder
+    private void hangup() {
         try {
-            mediaRecorder.prepare();
-        } catch (IllegalStateException e) {
-            Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
-            releaseMediaRecorder();
-            return false;
-        } catch (IOException e) {
-            Log.d(TAG, "IOException preparing MediaRecorder: " + e.getMessage());
-            releaseMediaRecorder();
-            return false;
+            localPeer.close();
+            localPeer = null;
+            close();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return true;
+
+    }
+
+    @Override
+    protected void onDestroy() {
+        close();
+        super.onDestroy();
+    }
+
+    /**
+     * Signalling Client Methods implemented
+     */
+
+    public void emitIceCandidate(IceCandidate iceCandidate, String username) {
+
+        SDP object = new SDP(iceCandidate, username);
+        insideCameraRef.push().setValue(object);
+
+    }
+
+
+    public void emitMessage(SessionDescription message, String username) {
+
+        Log.d("DialerScreen", "emitMessage() called with: message = [" + message + "]");
+        SDP object = new SDP(message, username);
+
+        Log.d("emitMessage", message.toString());
+        insideCameraRef.push().setValue(object, new DatabaseReference.CompletionListener() {
+            @Override
+            public void onComplete(@Nullable DatabaseError databaseError, @NonNull DatabaseReference databaseReference) {
+                Log.d("Hello", "session des pushed");
+            }
+        });
+    }
+
+    public void close() {
+        if(insideCameraRef!=null)
+        insideCameraRef.setValue(null);
+        detachReadListener();
+    }
+
+
+    public void attachReadListener(){
+
+        if(listener == null){
+
+            listener = new ChildEventListener() {
+                @Override
+                public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
+
+                    SDP object = dataSnapshot.getValue(SDP.class);
+
+                    if(object.username != cameraName){
+
+                        Log.d("Dialer Screen Activity", "Children added :: " + object.toString());
+                        String type = object.type;
+                        if (type.equalsIgnoreCase("offer")) {
+                            onOfferReceived(object);
+                        } else if (type.equalsIgnoreCase("answer") && isStarted) {
+                            onAnswerReceived(object);
+                        } else if (type.equalsIgnoreCase("candidate") && isStarted) {
+                            onIceCandidateReceived(object);
+                        }
+                    }
+                }
+
+                @Override
+                public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
+
+                }
+
+                @Override
+                public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
+
+                    showToast("Remote Peer hungup");
+                    //runOnUiThread(this::hangup);
+
+                }
+
+                /*private void hangup() {
+                    try {
+                        localPeer.close();
+                        localPeer = null;
+                        close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }*/
+
+                @Override
+                public void onChildMoved(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
+
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                }
+            };
+            insideCameraRef.addChildEventListener(listener);
+        }
+
+    }
+
+    public void detachReadListener(){
+        if(listener != null){
+            insideCameraRef.removeEventListener(listener);
+            listener = null;
+        }
     }
 
     public void controlRecording(){
-        if(isRecording){
-            // stop recording and release camera
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            mediaRecorder.stop();  // stop the recording
-            releaseMediaRecorder(); // release the MediaRecorder object
-            camera.lock();         // take camera access back from MediaRecorder
-
-            // inform the user that recording has stopped
-            setCaptureButtonText("Start Capture");
-            showToast("Video Path : " + file.toString(), getApplicationContext());
-            isRecording = false;
-        }
-        else {
-            // initialize video camera
-            if (prepareVideoRecorder()) {
-                // Camera is available and unlocked, MediaRecorder is prepared,
-                // now you can start recording
+        try{
+            if(isRecording){
+                // stop recording and release camera
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                stopRecording(1);
+                // inform the user that recording has stopped
+                setCaptureButtonText("Start Capture");
+                showToast("Video Path : " + file.toString());
+                isRecording = false;
+            }
+            else {
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                mediaRecorder.start();
+                VideoTrack videoTrack = null;
+                MediaStreamTrack track = stream.videoTracks.get(0);
+                if (track instanceof VideoTrack)
+                    videoTrack = (VideoTrack) track;
+                file = getOutputMediaFile(MEDIA_TYPE_VIDEO);
+                startRecordingToFile(file.getPath(), 1, videoTrack);
 
                 // inform the user that recording has started
                 setCaptureButtonText("Stop Capture");
                 isRecording = true;
-            } else {
-                // prepare didn't work, release the camera
-                releaseMediaRecorder();
-                // inform user
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(
+                    "Failed to open video file for output: ", e);
+        }
+
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
+    void startRecordingToFile(String path, Integer id, @Nullable VideoTrack videoTrack) throws Exception {
+
+        mediaRecorder = new MediaRecorderImpl(id, videoTrack);
+        mediaRecorder.startRecording(new File(path));
+        mediaRecorders.append(id, mediaRecorder);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
+    void stopRecording(Integer id) {
+        MediaRecorderImpl mediaRecorder = mediaRecorders.get(id);
+        if (mediaRecorder != null) {
+            mediaRecorder.stopRecording();
+            mediaRecorders.remove(id);
+            File file = mediaRecorder.getRecordFile();
+            if (file != null) {
+                ContentValues values = new ContentValues(3);
+                values.put(MediaStore.Video.Media.TITLE, file.getName());
+                values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+                values.put(MediaStore.Video.Media.DATA, file.getAbsolutePath());
+                getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
             }
         }
     }
+
 
     public void turnScreenOff(){
         WindowManager.LayoutParams params = getWindow().getAttributes();
@@ -282,11 +701,6 @@ public class CameraActivity extends AppCompatActivity {
         getWindow().setAttributes(params);
     }
 
-
-    /** Create a file Uri for saving an image or video */
-    private static Uri getOutputMediaFileUri(int type){
-        return Uri.fromFile(getOutputMediaFile(type));
-    }
 
     /** Create a File for saving an image or video */
     private static File getOutputMediaFile(int type){
@@ -321,41 +735,32 @@ public class CameraActivity extends AppCompatActivity {
         return mediaFile;
     }
 
-    private void releaseMediaRecorder(){
-        if (mediaRecorder != null) {
-            mediaRecorder.reset();   // clear recorder configuration
-            mediaRecorder.release(); // release the recorder object
-            mediaRecorder = null;
-            camera.lock();           // lock camera for later use
-        }
-    }
-
-    private void releaseCamera(){
-        if (camera != null){
-            camera.release();        // release the camera for other applications
-            camera = null;
-        }
-    }
-
-    /** A safe way to get an instance of the Camera object. */
-    public static Camera getCameraInstance(){
-        Camera c = null;
-        try {
-            c = Camera.open();
-            // attempt to get a Camera instance
-        }
-        catch (Exception e){
-            // Camera is not available (in use or does not exist)
-        }
-        return c; // returns null if camera is unavailable
-    }
-
     public void setCaptureButtonText(String text) {
         captureButton.setText(text);
     }
 
-    public void showToast(String mesasge, Context context){
-        Toast.makeText(context, mesasge, Toast.LENGTH_LONG).show();
+    public void showToast(final String msg) {
+        runOnUiThread(() -> Toast.makeText(CameraActivity.this, msg, Toast.LENGTH_SHORT).show());
+    }
+
+
+    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
+        final String[] deviceNames = enumerator.getDeviceNames();
+
+        // First, try to find back facing camera
+        Logging.d(TAG, "Looking for back facing cameras.");
+        for (String deviceName : deviceNames) {
+            if (enumerator.isBackFacing(deviceName)) {
+                Logging.d(TAG, "Creating back facing camera capturer.");
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+
+        return null;
     }
 
 }

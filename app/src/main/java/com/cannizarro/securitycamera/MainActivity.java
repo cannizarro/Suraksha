@@ -22,6 +22,7 @@ import android.widget.Toast;
 import com.firebase.ui.auth.AuthUI;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     public String username;
     public boolean hasCamera;
 
+    public static FirebaseDatabase firebaseDatabase;
     private FirebaseAuth mFirebaseAuth;
     private FirebaseAuth.AuthStateListener mAuthStateListner;
 
@@ -44,6 +46,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        firebaseDatabase = FirebaseDatabase.getInstance();
 
         hasCamera = checkCameraHardware(getApplicationContext());
 
@@ -91,6 +95,15 @@ public class MainActivity extends AppCompatActivity {
                 else{
                     showToast("There is no camera on this device.", getApplicationContext());
                 }
+            }
+        });
+
+        surveil.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                intent = new Intent(getApplicationContext(), CameraListActivity.class);
+                intent.putExtra("username", username);
+                startActivity(intent);
             }
         });
     }
