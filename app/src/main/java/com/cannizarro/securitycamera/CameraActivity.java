@@ -77,7 +77,6 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
 
 
 public class CameraActivity extends AppCompatActivity {
@@ -133,8 +132,6 @@ public class CameraActivity extends AppCompatActivity {
         screenOff = findViewById(R.id.screenOff);
         window = findViewById(R.id.window);
 
-        //start();
-
         window.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -176,7 +173,6 @@ public class CameraActivity extends AppCompatActivity {
                 else{
                     isChannelReady=true;
                     streamOnline();
-                    online.setText("Stop");
                 }
             }
         });
@@ -213,27 +209,76 @@ public class CameraActivity extends AppCompatActivity {
     }
 
 
-    /*@Override
+    @Override
     protected void onPause() {
         super.onPause();
-        stopRecording(1);
+        if(isRecording)
+            controlRecording();
+        if(isStarted)
+            hangup();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        start();
-    }*/
 
+    }
+
+    /**
+     * Initialising Camera Preview
+     */
     public void initViews(){
         localVideoView = findViewById(R.id.local_gl_surface_view);
         localVideoView.init(rootEglBase.getEglBaseContext(), null);
         localVideoView.setZOrderMediaOverlay(true);
     }
 
+    /**
+     * Method related to fulfil TURN server needs. Here we are using Xirsys
+     **/
+    private void getIceServers() {
+        //get Ice servers using xirsys
+        byte[] data = new byte[0];
+        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
+        String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
+        Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
+            @Override
+            public void onResponse(@NonNull Call<TurnServerPojo> call, @NonNull Response<TurnServerPojo> response) {
+                TurnServerPojo body = response.body();
+                if (body != null) {
+                    iceServers = body.iceServerList.iceServers;
+                }
+                for (IceServer iceServer : iceServers) {
+                    if (iceServer.credential == null) {
+                        PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(iceServer.url).createIceServer();
+                        peerIceServers.add(peerIceServer);
+                    } else {
+                        PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(iceServer.url)
+                                .setUsername(iceServer.username)
+                                .setPassword(iceServer.credential)
+                                .createIceServer();
+                        peerIceServers.add(peerIceServer);
+                    }
+                }
+                Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
+                t.printStackTrace();
+            }
+        });
+    }
+
+
+
+    /**
+     * Starting intitialising WebRTC built in features to be used for further streaming or video recording.
+     */
     public void start(){
 
-        initViews();
+        if(localVideoView == null)
+            initViews();
         getIceServers();
 
         PeerConnectionFactory.InitializationOptions initializationOptions =
@@ -297,7 +342,9 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-
+    /**
+     * Called when online button is pressed. Basically pushes its SDP constraints onto firebase for handshaking.
+     */
     private void streamOnline(){
         // Set up the input
         final EditText input = new EditText(this);
@@ -320,8 +367,8 @@ public class CameraActivity extends AppCompatActivity {
                         }
 
                         attachReadListener();
-
                         showToast("Camera name set");
+                        online.setText("Stop");
                     }
                 })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -331,51 +378,12 @@ public class CameraActivity extends AppCompatActivity {
                     }
                 })
                 .show();
-
-
-    }
-/**
- * Methods related to streaming
-**/
-    private void getIceServers() {
-        //get Ice servers using xirsys
-        byte[] data = new byte[0];
-        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
-        String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
-        Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
-            @Override
-            public void onResponse(@NonNull Call<TurnServerPojo> call, @NonNull Response<TurnServerPojo> response) {
-                TurnServerPojo body = response.body();
-                if (body != null) {
-                    iceServers = body.iceServerList.iceServers;
-                }
-                for (IceServer iceServer : iceServers) {
-                    if (iceServer.credential == null) {
-                        PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(iceServer.url).createIceServer();
-                        peerIceServers.add(peerIceServer);
-                    } else {
-                        PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(iceServer.url)
-                                .setUsername(iceServer.username)
-                                .setPassword(iceServer.credential)
-                                .createIceServer();
-                        peerIceServers.add(peerIceServer);
-                    }
-                }
-                Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
-                t.printStackTrace();
-            }
-        });
     }
 
     /**
      * This method will be called directly by the app when it is the initiator and has got the local media
      * or when the remote peer sends a message through socket that it is ready to transmit AV data
      */
-
     public void onTryToStart() {
         runOnUiThread(() -> {
             if (!isStarted && localVideoTrack != null && isChannelReady) {
@@ -389,7 +397,6 @@ public class CameraActivity extends AppCompatActivity {
             }
         });
     }
-
 
     /**
      * Creating the local peerconnection instance
@@ -454,7 +461,6 @@ public class CameraActivity extends AppCompatActivity {
         }, sdpConstraints);
     }
 
-
     /**
      * Received local ice candidate. Send it to remote peer through signalling for negotiation
      */
@@ -462,7 +468,6 @@ public class CameraActivity extends AppCompatActivity {
         //we have received ice candidate. We can set it to the other peer.
         emitIceCandidate(iceCandidate, cameraName);
     }
-
 
     /**
      * Called when remote peer sends offer
@@ -479,6 +484,9 @@ public class CameraActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Creating and pushing answer and pushing it firebase when offer recieved.
+     */
     private void doAnswer() {
         localPeer.createAnswer(new CustomSdpObserver("localCreateAns") {
             @Override
@@ -493,7 +501,6 @@ public class CameraActivity extends AppCompatActivity {
     /**
      * Called when remote peer sends answer to your offer
      */
-
     public void onAnswerReceived(SDP data) {
         showToast("Received Answer");
         localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.fromCanonicalForm(data.type.toLowerCase()), data.sdp));
@@ -509,7 +516,9 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-
+    /**
+     * Closes all connection and disconnects deletes all the local and online presence created.
+     */
     private void hangup() {
         try {
             localPeer.close();
@@ -523,14 +532,13 @@ public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        close();
+        hangup();
         super.onDestroy();
     }
 
     /**
-     * Signalling Client Methods implemented
+     * Pushing ice candidates to firebase.
      */
-
     public void emitIceCandidate(IceCandidate iceCandidate, String username) {
 
         SDP object = new SDP(iceCandidate, username);
@@ -538,7 +546,9 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-
+    /**
+     *Pushing the sesion description onto firebase.
+     */
     public void emitMessage(SessionDescription message, String username) {
 
         Log.d("DialerScreen", "emitMessage() called with: message = [" + message + "]");
@@ -553,13 +563,18 @@ public class CameraActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Detaching the read listener
+     */
     public void close() {
-        if(insideCameraRef!=null)
-        insideCameraRef.setValue(null);
         detachReadListener();
+        if(insideCameraRef!=null)
+            insideCameraRef.setValue(null);
     }
 
-
+    /**
+     * Attaching read listener to the inside camera reference.
+     */
     public void attachReadListener(){
 
         if(listener == null){
@@ -592,20 +607,8 @@ public class CameraActivity extends AppCompatActivity {
                 @Override
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
 
-                    showToast("Remote Peer hungup");
-                    //runOnUiThread(this::hangup);
-
+                    showToast("Streamer Disconnected");
                 }
-
-                /*private void hangup() {
-                    try {
-                        localPeer.close();
-                        localPeer = null;
-                        close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }*/
 
                 @Override
                 public void onChildMoved(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
@@ -619,7 +622,6 @@ public class CameraActivity extends AppCompatActivity {
             };
             insideCameraRef.addChildEventListener(listener);
         }
-
     }
 
     public void detachReadListener(){
@@ -629,6 +631,11 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * When this method is called:
+     * if isRecording is true then recording will stop
+     * else it will start recording
+     */
     public void controlRecording(){
         try{
             if(isRecording){
@@ -707,8 +714,6 @@ public class CameraActivity extends AppCompatActivity {
         // To be safe, you should check that the SDCard is
         // using Environment.getExternalStorageState() before doing this.
 
-
-
         // Create a media file name
         String timeStamp = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
         File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Security Camera/" + timeStamp);
@@ -759,8 +764,6 @@ public class CameraActivity extends AppCompatActivity {
                 }
             }
         }
-
         return null;
     }
-
 }
