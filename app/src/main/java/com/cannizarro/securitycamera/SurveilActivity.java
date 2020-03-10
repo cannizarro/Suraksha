@@ -4,7 +4,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
@@ -56,13 +59,15 @@ public class SurveilActivity extends AppCompatActivity {
     SurfaceViewRenderer remoteVideoView;
     SurfaceTextureHelper surfaceTextureHelper;
     Button hangup;
+    HeadsetPlugReceiver headsetPlugReceiver;
+    AudioManager audioManager;
 
     PeerConnection localPeer;
     List<IceServer> iceServers;
     EglBase rootEglBase;
 
     boolean isinitiator = false;
-    boolean isChannelReady=false;
+    boolean isChannelReady = false;
     boolean isStarted = false;
     String username;
     String cameraName;
@@ -77,11 +82,19 @@ public class SurveilActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_surveil);
 
+        setSpeakerphoneOn(true);
+
+        headsetPlugReceiver = new HeadsetPlugReceiver();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction("android.intent.action.HEADSET_PLUG");
+        registerReceiver(headsetPlugReceiver, intentFilter);
+
+
         Intent intent = getIntent();
-        username =intent.getStringExtra("username");
+        username = intent.getStringExtra("username");
         cameraName = intent.getStringExtra("cameraName");
 
-        isinitiator=false;
+        isinitiator = false;
         firebaseDatabase = MainActivity.firebaseDatabase;
 
         insideCameraRef = firebaseDatabase.getReference(username + "/" + cameraName);
@@ -165,46 +178,9 @@ public class SurveilActivity extends AppCompatActivity {
                 .setOptions(options)
                 .createPeerConnectionFactory();
 
-
-        //Now create a VideoCapturer instance.
-        //VideoCapturer videoCapturerAndroid;
-        //videoCapturerAndroid = createCameraCapturer(new Camera1Enumerator(false));
-
-        //Create MediaConstraints - Will be useful for specifying video and audio constraints.
         audioConstraints = new MediaConstraints();
         videoConstraints = new MediaConstraints();
-
-
         surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
-
-        //Create a VideoSource instance
-        /*if (videoCapturerAndroid != null) {
-            videoSource = peerConnectionFactory.createVideoSource(videoCapturerAndroid.isScreencast());
-        }
-
-        videoCapturerAndroid.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
-
-
-        localVideoTrack = peerConnectionFactory.createVideoTrack("100", videoSource);
-
-        //create an AudioSource instance
-        audioSource = peerConnectionFactory.createAudioSource(audioConstraints);
-        localAudioTrack = peerConnectionFactory.createAudioTrack("101", audioSource);
-
-
-        if (videoCapturerAndroid != null) {
-            videoCapturerAndroid.startCapture(1024, 720, 30);
-        }
-        localVideoView.setVisibility(View.VISIBLE);
-        // And finally, with our VideoRenderer ready, we
-        // can add our renderer to the VideoTrack.
-        localVideoTrack.addSink(localVideoView);
-
-        localVideoView.setMirror(true);*/
-
-        //gotUserMedia = true;
-        //showToast("Got local media");
-
         attachReadListener();
     }
 
@@ -219,7 +195,7 @@ public class SurveilActivity extends AppCompatActivity {
             if (!isStarted && isChannelReady) {
                 createPeerConnection();
                 isStarted = true;
-                if(isinitiator){
+                if (isinitiator) {
                     doCall();
                 }
             }
@@ -394,16 +370,16 @@ public class SurveilActivity extends AppCompatActivity {
     }
 
     public void close() {
-        insideCameraRef.setValue(null);
         detachReadListener();
+        insideCameraRef.setValue(null);
         Intent intent = new Intent(getApplicationContext(), MainActivity.class);
         startActivity(intent);
     }
 
 
-    public void attachReadListener(){
+    public void attachReadListener() {
 
-        if(listener == null){
+        if (listener == null) {
 
             listener = new ChildEventListener() {
                 @Override
@@ -411,7 +387,7 @@ public class SurveilActivity extends AppCompatActivity {
 
                     SDP object = dataSnapshot.getValue(SDP.class);
 
-                    if(object.username != username){
+                    if (object.username != username) {
 
                         Log.d("Dialer Screen Activity", "Children added :: " + object.type);
                         String type = object.type;
@@ -463,14 +439,31 @@ public class SurveilActivity extends AppCompatActivity {
 
     }
 
-    public void detachReadListener(){
-        if(listener != null){
+    public void detachReadListener() {
+        if (listener != null) {
             insideCameraRef.removeEventListener(listener);
             listener = null;
         }
     }
+
     public void showToast(final String msg) {
         runOnUiThread(() -> Toast.makeText(SurveilActivity.this, msg, Toast.LENGTH_SHORT).show());
     }
 
+    /** Sets the speaker phone mode. */
+    private void setSpeakerphoneOn(boolean on) {
+        if(audioManager == null)
+        {
+            audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        }
+        boolean wasOn = audioManager.isSpeakerphoneOn();
+        if (wasOn == on) {
+            return;
+        }
+        audioManager.setSpeakerphoneOn(on);
+    }
+
 }
+
