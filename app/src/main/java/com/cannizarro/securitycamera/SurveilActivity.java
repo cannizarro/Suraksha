@@ -44,6 +44,7 @@ import org.webrtc.VideoTrack;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -71,6 +72,7 @@ public class SurveilActivity extends AppCompatActivity {
     boolean isStarted = false;
     String username;
     String cameraName;
+    Stack<DatabaseReference> pushedRef;
     List<PeerConnection.IceServer> peerIceServers = new ArrayList<>();
 
     FirebaseDatabase firebaseDatabase;
@@ -82,7 +84,7 @@ public class SurveilActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_surveil);
 
-        setSpeakerphoneOn(true);
+        setSpeakerphoneOn(true);    //Test if speaker is working without this line
 
         headsetPlugReceiver = new HeadsetPlugReceiver();
         IntentFilter intentFilter = new IntentFilter();
@@ -100,6 +102,7 @@ public class SurveilActivity extends AppCompatActivity {
         insideCameraRef = firebaseDatabase.getReference(username + "/" + cameraName);
 
         isChannelReady = true;
+        pushedRef = new Stack<>();
 
         start();
 
@@ -350,32 +353,36 @@ public class SurveilActivity extends AppCompatActivity {
     public void emitIceCandidate(IceCandidate iceCandidate, String username) {
 
         SDP object = new SDP(iceCandidate, username);
-        insideCameraRef.push().setValue(object);
+        pushFun(object);
 
     }
 
 
     public void emitMessage(SessionDescription message, String username) {
 
-        Log.d("DialerScreen", "emitMessage() called with: message = [" + message + "]");
+        Log.d("HelloAsrar", "emitMessage() called with: message = [" + message + "]");
         SDP object = new SDP(message, username);
+        pushFun(object);
+    }
 
-        Log.d("emitMessage", message.toString());
-        insideCameraRef.push().setValue(object, new DatabaseReference.CompletionListener() {
-            @Override
-            public void onComplete(@Nullable DatabaseError databaseError, @NonNull DatabaseReference databaseReference) {
-                Log.d("Hello", "session des pushed");
-            }
-        });
+    public void pushFun(SDP object){
+        pushedRef.add(insideCameraRef.push());
+        pushedRef.peek().setValue(object);
     }
 
     public void close() {
         detachReadListener();
-        insideCameraRef.setValue(null);
-        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-        startActivity(intent);
+        deleteEntries();
+        pushedRef.clear();
+        finish();
+        //Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+        //startActivity(intent);
     }
 
+    public void deleteEntries(){
+        while(!pushedRef.empty())
+            pushedRef.pop().setValue(null);
+    }
 
     public void attachReadListener() {
 
@@ -450,7 +457,8 @@ public class SurveilActivity extends AppCompatActivity {
         runOnUiThread(() -> Toast.makeText(SurveilActivity.this, msg, Toast.LENGTH_SHORT).show());
     }
 
-    /** Sets the speaker phone mode. */
+    /** Sets the speaker phone mode.
+     * */
     private void setSpeakerphoneOn(boolean on) {
         if(audioManager == null)
         {

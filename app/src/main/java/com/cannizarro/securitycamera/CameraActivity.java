@@ -51,6 +51,7 @@ import org.webrtc.CameraEnumerator;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
+import org.webrtc.EglRenderer;
 import org.webrtc.IceCandidate;
 import org.webrtc.Logging;
 import org.webrtc.MediaConstraints;
@@ -167,11 +168,13 @@ public class CameraActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if(isChannelReady){
                     isChannelReady=false;
+                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                     hangup();
                     online.setText("Online");
                 }
                 else{
                     isChannelReady=true;
+                    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                     streamOnline();
                 }
             }
@@ -221,7 +224,6 @@ public class CameraActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
     }
 
     /**
@@ -532,7 +534,13 @@ public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        hangup();
+        Log.d("HelloAsrar", "onDestroy() called");
+        if(isStarted)
+            hangup();
+        if(isRecording)
+            controlRecording();
+
+        localVideoView.release();
         super.onDestroy();
     }
 
