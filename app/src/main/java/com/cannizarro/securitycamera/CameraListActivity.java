@@ -81,7 +81,8 @@ public class CameraListActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
-
+                    roomList.remove(dataSnapshot.getKey());
+                    adapter.notifyDataSetChanged();
                 }
 
                 @Override

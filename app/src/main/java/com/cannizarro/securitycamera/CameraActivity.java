@@ -363,10 +363,8 @@ public class CameraActivity extends AppCompatActivity {
                         insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
                         isInitiator = true;
 
-                        if(isInitiator){
-                            onTryToStart();
-                            Log.d("Hello", "onTryToStart() executed, is initiator is true");
-                        }
+                        onTryToStart();
+                        Log.d("Hello", "onTryToStart() executed, is initiator is true");
 
                         attachReadListener();
                         showToast("Camera name set");
@@ -525,6 +523,7 @@ public class CameraActivity extends AppCompatActivity {
         try {
             localPeer.close();
             localPeer = null;
+            isStarted = false;
             close();
         } catch (Exception e) {
             e.printStackTrace();
@@ -616,6 +615,10 @@ public class CameraActivity extends AppCompatActivity {
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
 
                     showToast("Streamer Disconnected");
+                    hangup();
+                    insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
+                    onTryToStart();
+                    attachReadListener();
                 }
 
                 @Override

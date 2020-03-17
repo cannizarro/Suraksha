@@ -84,7 +84,7 @@ public class SurveilActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_surveil);
 
-        setSpeakerphoneOn(true);    //Test if speaker is working without this line
+        //setSpeakerphoneOn(true);    //Test if speaker is working without this line
 
         headsetPlugReceiver = new HeadsetPlugReceiver();
         IntentFilter intentFilter = new IntentFilter();
@@ -342,6 +342,7 @@ public class SurveilActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        hangup();
         close();
         super.onDestroy();
     }
@@ -371,9 +372,12 @@ public class SurveilActivity extends AppCompatActivity {
     }
 
     public void close() {
+        isStarted = false;
+        isChannelReady = false;
         detachReadListener();
         deleteEntries();
         pushedRef.clear();
+        remoteVideoView.release();
         finish();
         //Intent intent = new Intent(getApplicationContext(), MainActivity.class);
         //startActivity(intent);
@@ -455,22 +459,6 @@ public class SurveilActivity extends AppCompatActivity {
 
     public void showToast(final String msg) {
         runOnUiThread(() -> Toast.makeText(SurveilActivity.this, msg, Toast.LENGTH_SHORT).show());
-    }
-
-    /** Sets the speaker phone mode.
-     * */
-    private void setSpeakerphoneOn(boolean on) {
-        if(audioManager == null)
-        {
-            audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
-            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        }
-        boolean wasOn = audioManager.isSpeakerphoneOn();
-        if (wasOn == on) {
-            return;
-        }
-        audioManager.setSpeakerphoneOn(on);
     }
 
 }
