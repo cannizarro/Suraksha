@@ -41,6 +41,7 @@ import org.webrtc.VideoCapturer;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,10 +87,10 @@ public class SurveilActivity extends AppCompatActivity {
 
         //setSpeakerphoneOn(true);    //Test if speaker is working without this line
 
-        headsetPlugReceiver = new HeadsetPlugReceiver();
+        /*headsetPlugReceiver = new HeadsetPlugReceiver();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction("android.intent.action.HEADSET_PLUG");
-        registerReceiver(headsetPlugReceiver, intentFilter);
+        registerReceiver(headsetPlugReceiver, intentFilter);*/
 
 
         Intent intent = getIntent();
@@ -103,8 +104,10 @@ public class SurveilActivity extends AppCompatActivity {
 
         isChannelReady = true;
         pushedRef = new Stack<>();
+        initViews();
+        initVideos();
 
-        start();
+        getIceServers();
 
         hangup.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -129,7 +132,11 @@ public class SurveilActivity extends AppCompatActivity {
     private void getIceServers() {
         //get Ice servers using xirsys
         byte[] data = new byte[0];
-        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
+        try {
+            data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
         String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
         Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
             @Override
@@ -151,6 +158,7 @@ public class SurveilActivity extends AppCompatActivity {
                     }
                 }
                 Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
+                start();
             }
 
             @Override
@@ -160,10 +168,8 @@ public class SurveilActivity extends AppCompatActivity {
         });
     }
 
+
     public void start() {
-        initViews();
-        initVideos();
-        getIceServers();
 
         PeerConnectionFactory.InitializationOptions initializationOptions =
                 PeerConnectionFactory.InitializationOptions.builder(this)
@@ -229,7 +235,7 @@ public class SurveilActivity extends AppCompatActivity {
 
             @Override
             public void onAddStream(MediaStream mediaStream) {
-                showToast("Received Remote stream");
+                showToast("Received camera stream");
                 super.onAddStream(mediaStream);
                 gotRemoteStream(mediaStream);
             }
@@ -266,7 +272,6 @@ public class SurveilActivity extends AppCompatActivity {
         final VideoTrack videoTrack = stream.videoTracks.get(0);
         runOnUiThread(() -> {
             try {
-                //remoteVideoView.setVisibility(View.VISIBLE);
                 videoTrack.addSink(remoteVideoView);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -289,7 +294,6 @@ public class SurveilActivity extends AppCompatActivity {
      * Called when remote peer sends offer
      */
     public void onOfferReceived(final SDP data) {
-        showToast("Received Offer");
         runOnUiThread(() -> {
             if (!isinitiator && !isStarted) {
                 onTryToStart();
@@ -309,15 +313,6 @@ public class SurveilActivity extends AppCompatActivity {
                 emitMessage(sessionDescription, username);
             }
         }, new MediaConstraints());
-    }
-
-    /**
-     * Called when remote peer sends answer to your offer
-     */
-
-    public void onAnswerReceived(SDP data) {
-        showToast("Received Answer");
-        localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.fromCanonicalForm(data.type.toLowerCase()), data.sdp));
     }
 
     /**
@@ -361,7 +356,6 @@ public class SurveilActivity extends AppCompatActivity {
 
     public void emitMessage(SessionDescription message, String username) {
 
-        Log.d("HelloAsrar", "emitMessage() called with: message = [" + message + "]");
         SDP object = new SDP(message, username);
         pushFun(object);
     }
@@ -379,8 +373,6 @@ public class SurveilActivity extends AppCompatActivity {
         pushedRef.clear();
         remoteVideoView.release();
         finish();
-        //Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-        //startActivity(intent);
     }
 
     public void deleteEntries(){
@@ -400,13 +392,11 @@ public class SurveilActivity extends AppCompatActivity {
 
                     if (object.username != username) {
 
-                        Log.d("Dialer Screen Activity", "Children added :: " + object.type);
+                        Log.d("SurveilActivity", "Children added :: " + object.type);
                         String type = object.type;
                         if (type.equalsIgnoreCase("offer")) {
                             onOfferReceived(object);
-                        } else if (type.equalsIgnoreCase("answer") && isStarted) {
-                            onAnswerReceived(object);
-                        } else if (type.equalsIgnoreCase("candidate") && isStarted) {
+                        }else if (type.equalsIgnoreCase("candidate") && isStarted) {
                             onIceCandidateReceived(object);
                         }
                     }
@@ -420,7 +410,7 @@ public class SurveilActivity extends AppCompatActivity {
                 @Override
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
 
-                    showToast("Remote Peer hungup");
+                    showToast("Camera stopped streaming");
                     runOnUiThread(this::hangup);
 
                 }

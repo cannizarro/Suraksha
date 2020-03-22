@@ -10,21 +10,13 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.hardware.Camera;
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder;
-import android.media.effect.Effect;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.text.InputType;
-import android.text.Layout;
 import android.util.Base64;
 import android.util.Log;
 import android.util.SparseArray;
@@ -132,6 +124,8 @@ public class CameraActivity extends AppCompatActivity {
         captureButton = findViewById(R.id.save);
         screenOff = findViewById(R.id.screenOff);
         window = findViewById(R.id.window);
+
+        online.setEnabled(false);
 
         window.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -263,6 +257,7 @@ public class CameraActivity extends AppCompatActivity {
                     }
                 }
                 Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
+                online.setEnabled(true);
             }
 
             @Override
@@ -281,6 +276,7 @@ public class CameraActivity extends AppCompatActivity {
 
         if(localVideoView == null)
             initViews();
+
         getIceServers();
 
         PeerConnectionFactory.InitializationOptions initializationOptions =
@@ -334,13 +330,10 @@ public class CameraActivity extends AppCompatActivity {
         // can add our renderer to the VideoTrack.
         localVideoTrack.addSink(localVideoView);
 
-
         stream = peerConnectionFactory.createLocalMediaStream("102");
         stream.addTrack(localVideoTrack);
 
-
         gotUserMedia = true;
-        showToast("Got local media");
 
     }
 
@@ -364,7 +357,6 @@ public class CameraActivity extends AppCompatActivity {
                         isInitiator = true;
 
                         onTryToStart();
-                        Log.d("Hello", "onTryToStart() executed, is initiator is true");
 
                         attachReadListener();
                         showToast("Camera name set");
@@ -388,11 +380,9 @@ public class CameraActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             if (!isStarted && localVideoTrack != null && isChannelReady) {
                 createPeerConnection();
-                Log.d("Hello", "CreatePeerConnection is called");
                 isStarted = true;
                 if(isInitiator){
                     doCall();
-                    Log.d("Hello", "doCall is called");
                 }
             }
         });
@@ -417,12 +407,6 @@ public class CameraActivity extends AppCompatActivity {
             public void onIceCandidate(IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
                 onIceCandidateReceived(iceCandidate);
-            }
-
-            @Override
-            public void onAddStream(MediaStream mediaStream) {
-                showToast("Received Remote stream");
-                super.onAddStream(mediaStream);
             }
         });
 
@@ -470,39 +454,10 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     /**
-     * Called when remote peer sends offer
-     */
-    public void onOfferReceived(final SDP data) {
-        showToast("Received Offer");
-        runOnUiThread(() -> {
-            if (!isInitiator && !isStarted) {
-                onTryToStart();
-            }
-
-            localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.OFFER, data.sdp));
-            doAnswer();
-        });
-    }
-
-    /**
-     * Creating and pushing answer and pushing it firebase when offer recieved.
-     */
-    private void doAnswer() {
-        localPeer.createAnswer(new CustomSdpObserver("localCreateAns") {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                super.onCreateSuccess(sessionDescription);
-                localPeer.setLocalDescription(new CustomSdpObserver("localSetLocal"), sessionDescription);
-                emitMessage(sessionDescription, cameraName);
-            }
-        }, new MediaConstraints());
-    }
-
-    /**
      * Called when remote peer sends answer to your offer
      */
     public void onAnswerReceived(SDP data) {
-        showToast("Received Answer");
+        showToast("Streamer added");
         localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.fromCanonicalForm(data.type.toLowerCase()), data.sdp));
 
     }
@@ -533,7 +488,6 @@ public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        Log.d("HelloAsrar", "onDestroy() called");
         if(isStarted)
             hangup();
         if(isRecording)
@@ -558,14 +512,12 @@ public class CameraActivity extends AppCompatActivity {
      */
     public void emitMessage(SessionDescription message, String username) {
 
-        Log.d("DialerScreen", "emitMessage() called with: message = [" + message + "]");
+        Log.d("CameraActivity", "emitMessage() called with: message = [" + message + "]");
         SDP object = new SDP(message, username);
 
-        Log.d("emitMessage", message.toString());
         insideCameraRef.push().setValue(object, new DatabaseReference.CompletionListener() {
             @Override
             public void onComplete(@Nullable DatabaseError databaseError, @NonNull DatabaseReference databaseReference) {
-                Log.d("Hello", "session des pushed");
             }
         });
     }
@@ -594,11 +546,11 @@ public class CameraActivity extends AppCompatActivity {
 
                     if(object.username != cameraName){
 
-                        Log.d("Dialer Screen Activity", "Children added :: " + object.toString());
+                        Log.d("CameraActivity", "Children added :: " + object.toString());
                         String type = object.type;
-                        if (type.equalsIgnoreCase("offer")) {
+                        /*if (type.equalsIgnoreCase("offer")) {
                             onOfferReceived(object);
-                        } else if (type.equalsIgnoreCase("answer") && isStarted) {
+                        } else */if (type.equalsIgnoreCase("answer") && isStarted) {
                             onAnswerReceived(object);
                         } else if (type.equalsIgnoreCase("candidate") && isStarted) {
                             onIceCandidateReceived(object);
