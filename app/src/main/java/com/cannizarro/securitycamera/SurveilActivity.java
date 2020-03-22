@@ -85,7 +85,14 @@ public class SurveilActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_surveil);
 
-        //setSpeakerphoneOn(true);    //Test if speaker is working without this line
+        if(audioManager == null)
+        {
+            audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        }
+
+        setSpeakerphoneOn(true);    //Test if speaker is working without this line
 
         headsetPlugReceiver = new HeadsetPlugReceiver();
         IntentFilter intentFilter = new IntentFilter();
@@ -451,5 +458,14 @@ public class SurveilActivity extends AppCompatActivity {
         runOnUiThread(() -> Toast.makeText(SurveilActivity.this, msg, Toast.LENGTH_SHORT).show());
     }
 
+
+    /** Sets the speaker phone mode. */
+    private void setSpeakerphoneOn(boolean on) {
+        boolean wasOn = audioManager.isSpeakerphoneOn();
+        if (wasOn == on) {
+            return;
+        }
+        audioManager.setSpeakerphoneOn(on);
+    }
 }
 
