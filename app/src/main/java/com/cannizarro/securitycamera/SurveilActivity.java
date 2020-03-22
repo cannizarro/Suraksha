@@ -87,10 +87,10 @@ public class SurveilActivity extends AppCompatActivity {
 
         //setSpeakerphoneOn(true);    //Test if speaker is working without this line
 
-        /*headsetPlugReceiver = new HeadsetPlugReceiver();
+        headsetPlugReceiver = new HeadsetPlugReceiver();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction("android.intent.action.HEADSET_PLUG");
-        registerReceiver(headsetPlugReceiver, intentFilter);*/
+        registerReceiver(headsetPlugReceiver, intentFilter);
 
 
         Intent intent = getIntent();
