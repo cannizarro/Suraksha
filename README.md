@@ -1,9 +1,8 @@
 # Suraksha
 
 
-This app will help you convert any android phone to be converted into an security camera through which you can locally save the video
-feed to the android phone itself or watch a live stream of what's going on on your remote android phone. There is one prerequisite that
-both the devices have to be logged in with the same google account.
+This app will help you convert any android phone to a security camera through which you can locally save the video
+feed to the android phone itself or watch a live stream on any remote android phone logged in with the same google account.
 
 
 ### Prerequisites
