@@ -40,6 +40,7 @@ import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.Camera1Enumerator;
 import org.webrtc.CameraEnumerator;
+import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
@@ -86,6 +87,7 @@ public class CameraActivity extends AppCompatActivity {
     MediaConstraints audioConstraints;
     MediaConstraints videoConstraints;
     MediaConstraints sdpConstraints;
+    VideoCapturer videoCapturerAndroid;
     VideoSource videoSource;
     VideoTrack localVideoTrack;
     AudioSource audioSource;
@@ -215,10 +217,6 @@ public class CameraActivity extends AppCompatActivity {
             hangup();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
 
     /**
      * Initialising Camera Preview
@@ -297,7 +295,6 @@ public class CameraActivity extends AppCompatActivity {
 
 
         //Now create a VideoCapturer instance.
-        VideoCapturer videoCapturerAndroid;
         videoCapturerAndroid = createCameraCapturer(new Camera1Enumerator(false));
 
 
@@ -493,6 +490,13 @@ public class CameraActivity extends AppCompatActivity {
         if(isRecording)
             controlRecording();
 
+        try {
+            videoCapturerAndroid.stopCapture();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        videoCapturerAndroid.dispose();
+        videoSource.dispose();
         localVideoView.release();
         super.onDestroy();
     }
