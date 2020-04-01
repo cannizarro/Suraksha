@@ -495,6 +495,8 @@ public class CameraActivity extends AppCompatActivity {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        surfaceTextureHelper.stopListening();
+        surfaceTextureHelper.dispose();
         localVideoView.release();
         super.onDestroy();
     }
