@@ -36,6 +36,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 * [Vivek's android codelab for WebRTC](https://github.com/vivek1794/webrtc-android-codelab).
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
