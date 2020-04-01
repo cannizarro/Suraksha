@@ -495,8 +495,6 @@ public class CameraActivity extends AppCompatActivity {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        videoCapturerAndroid.dispose();
-        videoSource.dispose();
         localVideoView.release();
         super.onDestroy();
     }
