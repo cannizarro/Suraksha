@@ -418,18 +418,7 @@ public class SurveilActivity extends AppCompatActivity {
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
 
                     showToast("Camera stopped streaming");
-                    runOnUiThread(this::hangup);
-
-                }
-
-                private void hangup() {
-                    try {
-                        localPeer.close();
-                        localPeer = null;
-                        close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    hangup();
                 }
 
                 @Override

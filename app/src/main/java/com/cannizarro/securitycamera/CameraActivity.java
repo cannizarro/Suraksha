@@ -95,8 +95,7 @@ public class CameraActivity extends AppCompatActivity {
     public static EglBase rootEglBase;
     SurfaceTextureHelper surfaceTextureHelper;
     MediaStream stream;
-    private final SparseArray<MediaRecorderImpl> mediaRecorders = new SparseArray<>();
-    MediaRecorderImpl mediaRecorder;
+    CustomVideoRecorder customVideoRecorder;
 
     private File file;
 
@@ -552,9 +551,7 @@ public class CameraActivity extends AppCompatActivity {
 
                         Log.d("CameraActivity", "Children added :: " + object.toString());
                         String type = object.type;
-                        /*if (type.equalsIgnoreCase("offer")) {
-                            onOfferReceived(object);
-                        } else */if (type.equalsIgnoreCase("answer") && isStarted) {
+                        if (type.equalsIgnoreCase("answer") && isStarted) {
                             onAnswerReceived(object);
                         } else if (type.equalsIgnoreCase("candidate") && isStarted) {
                             onIceCandidateReceived(object);
@@ -608,7 +605,7 @@ public class CameraActivity extends AppCompatActivity {
             if(isRecording){
                 // stop recording and release camera
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                stopRecording(1);
+                customVideoRecorder.stopRecording(1, getApplicationContext());
                 // inform the user that recording has stopped
                 setCaptureButtonText("Start Capture");
                 showToast("Video Path : " + file.toString());
@@ -621,7 +618,7 @@ public class CameraActivity extends AppCompatActivity {
                 if (track instanceof VideoTrack)
                     videoTrack = (VideoTrack) track;
                 file = getOutputMediaFile(MEDIA_TYPE_VIDEO);
-                startRecordingToFile(file.getPath(), 1, videoTrack);
+                customVideoRecorder.startRecordingToFile(file.getPath(), 1, videoTrack);
 
                 // inform the user that recording has started
                 setCaptureButtonText("Stop Capture");
@@ -636,30 +633,6 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    void startRecordingToFile(String path, Integer id, @Nullable VideoTrack videoTrack) throws Exception {
-
-        mediaRecorder = new MediaRecorderImpl(id, videoTrack);
-        mediaRecorder.startRecording(new File(path));
-        mediaRecorders.append(id, mediaRecorder);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    void stopRecording(Integer id) {
-        MediaRecorderImpl mediaRecorder = mediaRecorders.get(id);
-        if (mediaRecorder != null) {
-            mediaRecorder.stopRecording();
-            mediaRecorders.remove(id);
-            File file = mediaRecorder.getRecordFile();
-            if (file != null) {
-                ContentValues values = new ContentValues(3);
-                values.put(MediaStore.Video.Media.TITLE, file.getName());
-                values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
-                values.put(MediaStore.Video.Media.DATA, file.getAbsolutePath());
-                getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
-            }
-        }
-    }
 
 
     public void turnScreenOff(){
