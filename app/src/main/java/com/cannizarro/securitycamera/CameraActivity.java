@@ -2,32 +2,23 @@ package com.cannizarro.securitycamera;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.content.ContentValues;
-import android.content.DialogInterface;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
-import android.util.SparseArray;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.firebase.database.ChildEventListener;
@@ -40,16 +31,13 @@ import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.Camera1Enumerator;
 import org.webrtc.CameraEnumerator;
-import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
-import org.webrtc.EglRenderer;
 import org.webrtc.IceCandidate;
 import org.webrtc.Logging;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
-import org.webrtc.MediaStreamTrack;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
@@ -60,12 +48,12 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -78,7 +66,7 @@ public class CameraActivity extends AppCompatActivity {
     final String TAG = "CameraActivity";
     final int ALL_PERMISSIONS_CODE = 1;
     static final int MEDIA_TYPE_VIDEO = 1;
-    private boolean isRecording = false, isScreenOn=true, isInitiator=false, isChannelReady=false, isStarted=false, gotUserMedia=false;
+    private boolean isRecording = false, isScreenOn=true, isInitiator=false, isStarted=false;
     private String username, cameraName;
     PeerConnection localPeer;
     List<IceServer> iceServers;
@@ -99,7 +87,6 @@ public class CameraActivity extends AppCompatActivity {
 
     private File file;
 
-    private View window;
     SurfaceViewRenderer localVideoView;
     private Button captureButton, screenOff, online;
 
@@ -124,54 +111,38 @@ public class CameraActivity extends AppCompatActivity {
         online = findViewById(R.id.online);
         captureButton = findViewById(R.id.save);
         screenOff = findViewById(R.id.screenOff);
-        window = findViewById(R.id.window);
+        View window = findViewById(R.id.window);
 
         online.setEnabled(false);
 
-        window.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(!isScreenOn){
-                    turnScreenOn();
-                    isScreenOn = true;
-                    screenOff.setText("Dim Screen");
-                    captureButton.setEnabled(true);
-                    screenOff.setEnabled(true);
-                }
+        window.setOnClickListener(view -> {
+            if(!isScreenOn){
+                turnScreenOn();
+                isScreenOn = true;
+                screenOff.setText(R.string.dim_screen);
+                captureButton.setEnabled(true);
+                screenOff.setEnabled(true);
             }
         });
 
-        screenOff.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                turnScreenOff();
-                isScreenOn = false;
-                captureButton.setEnabled(false);
-                screenOff.setEnabled(false);
-            }
+        screenOff.setOnClickListener(view -> {
+            turnScreenOff();
+            isScreenOn = false;
+            captureButton.setEnabled(false);
+            screenOff.setEnabled(false);
         });
 
-        captureButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                controlRecording();
-            }
-        });
+        captureButton.setOnClickListener(view -> controlRecording());
 
-        online.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(isChannelReady){
-                    isChannelReady=false;
-                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                    hangup();
-                    online.setText("Online");
-                }
-                else{
-                    isChannelReady=true;
-                    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                    streamOnline();
-                }
+        online.setOnClickListener(view -> {
+            if(isStarted){
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                hangup();
+                online.setText(R.string.online);
+            }
+            else{
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                streamOnline();
             }
         });
 
@@ -231,7 +202,7 @@ public class CameraActivity extends AppCompatActivity {
      **/
     private void getIceServers() {
         //get Ice servers using xirsys
-        byte[] data = new byte[0];
+        byte[] data;
         data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
         String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
         Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
@@ -306,9 +277,8 @@ public class CameraActivity extends AppCompatActivity {
         //Create a VideoSource instance
         if (videoCapturerAndroid != null) {
             videoSource = peerConnectionFactory.createVideoSource(videoCapturerAndroid.isScreencast());
+            videoCapturerAndroid.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
         }
-
-        videoCapturerAndroid.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
 
         localVideoTrack = peerConnectionFactory.createVideoTrack("100", videoSource);
 
@@ -328,9 +298,6 @@ public class CameraActivity extends AppCompatActivity {
 
         stream = peerConnectionFactory.createLocalMediaStream("102");
         stream.addTrack(localVideoTrack);
-
-        gotUserMedia = true;
-
     }
 
     /**
@@ -345,26 +312,18 @@ public class CameraActivity extends AppCompatActivity {
                 .setTitle("Set camera name.")
                 .setMessage("If you want to go online, please set this camera's name.")
                 .setView(input)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        cameraName = input.getText().toString();
-                        insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
-                        isInitiator = true;
+                .setPositiveButton("OK", (dialogInterface, i) -> {
+                    cameraName = input.getText().toString();
+                    insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
+                    isInitiator = true;
 
-                        onTryToStart();
+                    onTryToStart();
 
-                        attachReadListener();
-                        showToast("Camera name set");
-                        online.setText("Stop");
-                    }
+                    attachReadListener();
+                    showToast("Camera name set");
+                    online.setText(R.string.online_stop);
                 })
-                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        dialogInterface.cancel();
-                    }
-                })
+                .setNegativeButton("Cancel", (dialogInterface, i) -> dialogInterface.cancel())
                 .show();
     }
 
@@ -374,7 +333,7 @@ public class CameraActivity extends AppCompatActivity {
      */
     public void onTryToStart() {
         runOnUiThread(() -> {
-            if (!isStarted && localVideoTrack != null && isChannelReady) {
+            if (!isStarted && localVideoTrack != null) {
                 createPeerConnection();
                 isStarted = true;
                 if(isInitiator){
@@ -489,14 +448,17 @@ public class CameraActivity extends AppCompatActivity {
         if(isRecording)
             controlRecording();
 
-        try {
-            videoCapturerAndroid.stopCapture();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        if(videoCapturerAndroid != null){
+            try {
+                videoCapturerAndroid.stopCapture();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            surfaceTextureHelper.stopListening();
+            surfaceTextureHelper.dispose();
+            localVideoView.release();
         }
-        surfaceTextureHelper.stopListening();
-        surfaceTextureHelper.dispose();
-        localVideoView.release();
+
         super.onDestroy();
     }
 
@@ -518,10 +480,7 @@ public class CameraActivity extends AppCompatActivity {
         Log.d("CameraActivity", "emitMessage() called with: message = [" + message + "]");
         SDP object = new SDP(message, username);
 
-        insideCameraRef.push().setValue(object, new DatabaseReference.CompletionListener() {
-            @Override
-            public void onComplete(@Nullable DatabaseError databaseError, @NonNull DatabaseReference databaseReference) {
-            }
+        insideCameraRef.push().setValue(object, (databaseError, databaseReference) -> {
         });
     }
 
@@ -547,7 +506,7 @@ public class CameraActivity extends AppCompatActivity {
 
                     SDP object = dataSnapshot.getValue(SDP.class);
 
-                    if(object.username != cameraName){
+                    if (object != null && !object.username.equals(cameraName)) {
 
                         Log.d("CameraActivity", "Children added :: " + object.toString());
                         String type = object.type;
@@ -616,12 +575,15 @@ public class CameraActivity extends AppCompatActivity {
             }
             else {
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                VideoTrack videoTrack = null;
-                MediaStreamTrack track = stream.videoTracks.get(0);
+                VideoTrack videoTrack = stream.videoTracks.get(0);
+                /*MediaStreamTrack track = stream.videoTracks.get(0);
+
                 if (track instanceof VideoTrack)
-                    videoTrack = (VideoTrack) track;
+                    videoTrack = (VideoTrack) track;*/
                 file = getOutputMediaFile(MEDIA_TYPE_VIDEO);
-                customVideoRecorder.startRecordingToFile(file.getPath(), 1, videoTrack);
+                if (file != null) {
+                    customVideoRecorder.startRecordingToFile(file.getPath(), 1, videoTrack);
+                }
 
                 // inform the user that recording has started
                 setCaptureButtonText("Stop Capture");
@@ -653,12 +615,12 @@ public class CameraActivity extends AppCompatActivity {
 
 
     /** Create a File for saving an image or video */
-    private static File getOutputMediaFile(int type){
+    private static File getOutputMediaFile(@SuppressWarnings("SameParameterValue") int type){
         // To be safe, you should check that the SDCard is
         // using Environment.getExternalStorageState() before doing this.
 
         // Create a media file name
-        String timeStamp = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+        String timeStamp = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH).format(new Date());
         File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Security Camera/" + timeStamp);
         // This location works best if you want the created images to be shared
         // between applications and persist after your app has been uninstalled.
@@ -672,7 +634,7 @@ public class CameraActivity extends AppCompatActivity {
         }
 
         File mediaFile;
-        timeStamp = new SimpleDateFormat("HH:mm:ss").format(new Date());
+        timeStamp = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH).format(new Date());
         if(type == MEDIA_TYPE_VIDEO) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator +
                     "CAM_"+ timeStamp + ".mp4");

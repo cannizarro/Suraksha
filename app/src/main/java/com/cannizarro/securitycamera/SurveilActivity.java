@@ -11,10 +11,7 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.google.firebase.database.ChildEventListener;
@@ -23,9 +20,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
-import org.webrtc.AudioSource;
-import org.webrtc.AudioTrack;
-import org.webrtc.Camera1Enumerator;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
@@ -37,11 +31,8 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoCapturer;
-import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,7 +60,6 @@ public class SurveilActivity extends AppCompatActivity {
     EglBase rootEglBase;
 
     boolean isinitiator = false;
-    boolean isChannelReady = false;
     boolean isStarted = false;
     String username;
     String cameraName;
@@ -88,8 +78,9 @@ public class SurveilActivity extends AppCompatActivity {
         if(audioManager == null)
         {
             audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+            //noinspection ConstantConditions
             audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            audioManager.setMode(AudioManager.MODE_NORMAL);
         }
 
         setSpeakerphoneOn(true);    //Test if speaker is working without this line
@@ -109,19 +100,13 @@ public class SurveilActivity extends AppCompatActivity {
 
         insideCameraRef = firebaseDatabase.getReference(username + "/" + cameraName);
 
-        isChannelReady = true;
         pushedRef = new Stack<>();
         initViews();
         initVideos();
 
         getIceServers();
 
-        hangup.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                hangup();
-            }
-        });
+        hangup.setOnClickListener(view -> hangup());
 
     }
 
@@ -138,12 +123,9 @@ public class SurveilActivity extends AppCompatActivity {
 
     private void getIceServers() {
         //get Ice servers using xirsys
-        byte[] data = new byte[0];
-        try {
-            data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes("UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        byte[] data;
+        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
+
         String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
         Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
             @Override
@@ -208,7 +190,7 @@ public class SurveilActivity extends AppCompatActivity {
 
     public void onTryToStart() {
         runOnUiThread(() -> {
-            if (!isStarted && isChannelReady) {
+            if (!isStarted) {
                 createPeerConnection();
                 isStarted = true;
                 if (isinitiator) {
@@ -374,7 +356,6 @@ public class SurveilActivity extends AppCompatActivity {
 
     public void close() {
         isStarted = false;
-        isChannelReady = false;
         detachReadListener();
         deleteEntries();
         pushedRef.clear();
@@ -397,13 +378,13 @@ public class SurveilActivity extends AppCompatActivity {
 
                     SDP object = dataSnapshot.getValue(SDP.class);
 
-                    if (object.username != username) {
+                    if (object != null && !object.username.equals(username)) {
 
                         Log.d("SurveilActivity", "Children added :: " + object.type);
                         String type = object.type;
                         if (type.equalsIgnoreCase("offer")) {
                             onOfferReceived(object);
-                        }else if (type.equalsIgnoreCase("candidate") && isStarted) {
+                        } else if (type.equalsIgnoreCase("candidate") && isStarted) {
                             onIceCandidateReceived(object);
                         }
                     }
@@ -449,7 +430,7 @@ public class SurveilActivity extends AppCompatActivity {
 
 
     /** Sets the speaker phone mode. */
-    private void setSpeakerphoneOn(boolean on) {
+    private void setSpeakerphoneOn(@SuppressWarnings("SameParameterValue") boolean on) {
         boolean wasOn = audioManager.isSpeakerphoneOn();
         if (wasOn == on) {
             return;

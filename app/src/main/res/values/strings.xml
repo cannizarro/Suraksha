@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Suraksha</string>
+    <string name="dim_screen">Dim Screen</string>
+    <string name="online">Online</string>
+    <string name="online_stop">Stop</string>
+
 </resources>
