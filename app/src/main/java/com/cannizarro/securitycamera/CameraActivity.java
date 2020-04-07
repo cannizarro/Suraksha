@@ -602,6 +602,9 @@ public class CameraActivity extends AppCompatActivity {
      */
     public void controlRecording(){
         try{
+            if(customVideoRecorder == null){
+                customVideoRecorder = new CustomVideoRecorder();
+            }
             if(isRecording){
                 // stop recording and release camera
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
