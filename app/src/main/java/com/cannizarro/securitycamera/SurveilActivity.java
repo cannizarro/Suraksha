@@ -325,10 +325,10 @@ public class SurveilActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    protected void onPause() {
+        super.onPause();
         hangup();
         close();
-        super.onDestroy();
     }
 
     /**
