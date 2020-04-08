@@ -2,12 +2,12 @@
 
 
 This app will help you convert any android phone to a security camera through which you can locally save the video
-feed to the android phone itself or watch a live stream on any remote android phone logged in with the same google account.
+feed to the android phone (serving as the camera) as mp4 or watch a live stream on any remote android phone logged in with the same google account.
 
 
 ### Prerequisites
 
-Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and above is fine and if you're not go see a doctor.
+Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and above is fine.
 
 ## How to use
 
@@ -17,7 +17,7 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 
 Please give any permission you are prompted. It will just ask to access your camera, audio and storage, duh.
 
-This app works with basically any network due to the robust TURN server provided by Xirsys which will help us dodge most of the NATs and firewalls, but still if you don't get any video feed even when you got `Recieved remote stream` toast, maybe there are chances that your network don't like P2P connections. So my app worked, your ISP is an asshole, hehehe.
+This app works with basically any network due to the robust TURN server provided by Xirsys which will help us dodge most of the NATs and firewalls, but still if you don't get any video feed even when you got `Recieved remote stream` toast, maybe there are chances that your network don't like P2P connections and your ISP is an asshole, hehehe.
 
 ## Built With
 
