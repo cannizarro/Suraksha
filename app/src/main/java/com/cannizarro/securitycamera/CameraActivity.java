@@ -129,7 +129,7 @@ public class CameraActivity extends AppCompatActivity {
         Intent intent = getIntent();
         username = intent.getStringExtra("username");
 
-        firebaseDatabase = MainActivity.firebaseDatabase;
+        firebaseDatabase = FirebaseDatabase.getInstance();
 
         rootEglBase = EglBase.create();
 
@@ -231,8 +231,13 @@ public class CameraActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
 
-        if (isStarted)
+        if (isStarted) {
             hangup();
+
+            localVideoView.setKeepScreenOn(false);
+            onlineButton.setText(R.string.online);
+            onlineButton.setBackgroundColor(getResources().getColor(R.color.colorPrimary, getResources().newTheme()));
+        }
         if (isRecording)
             controlRecording();
 
@@ -246,10 +251,6 @@ public class CameraActivity extends AppCompatActivity {
             surfaceTextureHelper.dispose();
             localVideoView.release();
         }
-        if (localVideoView == null) {
-            Log.d("Asrar", "videoview is null");
-        } else
-            Log.d("Asrar", "videoview not null");
     }
 
     @Override
@@ -272,7 +273,7 @@ public class CameraActivity extends AppCompatActivity {
     private void getIceServers() {
         //get Ice servers using xirsys
         byte[] data;
-        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
+        data = ("helloworld:15cd7008-7e53-11ea-b54a-0242ac110007").getBytes(StandardCharsets.UTF_8);
         String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
         Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
             @Override
@@ -293,7 +294,7 @@ public class CameraActivity extends AppCompatActivity {
                         peerIceServers.add(peerIceServer);
                     }
                 }
-                Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
+                Log.d("onApiResponse", "IceServers\n" + peerIceServers.toString());
                 isChannelReady = true;
                 onlineButton.setEnabled(true);
             }
@@ -644,7 +645,6 @@ public class CameraActivity extends AppCompatActivity {
             if (isRecording) {
                 // stop recording and release camera
                 localVideoView.setKeepScreenOn(false);
-                speedDialView.setEnabled(true);
                 //getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 customVideoRecorder.stopRecording(1, getApplicationContext());
                 // inform the user that recording has stopped
@@ -654,7 +654,6 @@ public class CameraActivity extends AppCompatActivity {
                 isRecording = false;
             } else {
                 localVideoView.setKeepScreenOn(true);
-                speedDialView.setEnabled(false);
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 file = getOutputMediaFile(MEDIA_TYPE_VIDEO);
                 if (file != null) {

@@ -97,6 +97,33 @@ public class SurveilActivity extends AppCompatActivity {
     DatabaseReference insideCameraRef;
     ChildEventListener listener;
 
+    /**
+     * Create a File for saving an image or video
+     */
+    private static File getOutputMediaFile() {
+        // To be safe, you should check that the SDCard is
+        // using Environment.getExternalStorageState() before doing this.
+
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH).format(new Date());
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Security Camera/" + timeStamp + "/Remote Screens/");
+        // This location works best if you want the created images to be shared
+        // between applications and persist after your app has been uninstalled.
+        // Create the storage directory if it does not exist
+        if (!mediaStorageDir.exists()) {
+            if (!mediaStorageDir.mkdirs()) {
+                Log.d("Security Camera", "failed to create directory");
+                return null;
+            }
+        }
+
+        File mediaFile;
+        timeStamp = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH).format(new Date());
+        mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+                "Screen_" + timeStamp + ".png");
+        return mediaFile;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -105,7 +132,7 @@ public class SurveilActivity extends AppCompatActivity {
         if (audioManager == null) {
             audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
             audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            audioManager.setMode(AudioManager.MODE_CURRENT);
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         }
 
         setSpeakerphoneOn();    //Test if speaker is working without this line
@@ -119,7 +146,7 @@ public class SurveilActivity extends AppCompatActivity {
         username = intent.getStringExtra("username");
         cameraName = intent.getStringExtra("cameraName");
 
-        firebaseDatabase = MainActivity.firebaseDatabase;
+        firebaseDatabase = FirebaseDatabase.getInstance();
 
         insideCameraRef = firebaseDatabase.getReference(username + "/" + cameraName);
 
@@ -155,25 +182,28 @@ public class SurveilActivity extends AppCompatActivity {
         }
     }
 
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        if (isStarted)
-            hangup();
-
-        remoteVideoView.release();
-        unregisterReceiver(headsetPlugReceiver);
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
         registerReceiver(headsetPlugReceiver, intentFilter);
         initVideos();
+        start();
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (remoteVideoView != null) {
+            remoteVideoView.setKeepScreenOn(false);
+        }
+        if (remoteVideoTrack != null)
+            remoteVideoTrack.removeSink(remoteVideoView);
+        if (remoteVideoView != null)
+            remoteVideoView.release();
+        unregisterReceiver(headsetPlugReceiver);
+        if (isStarted)
+            hangup();
+    }
 
     private void initViews() {
         backButton = findViewById(R.id.back_button);
@@ -189,7 +219,7 @@ public class SurveilActivity extends AppCompatActivity {
     private void getIceServers() {
         //get Ice servers using xirsys
         byte[] data;
-        data = ("helloworld:ca2fa126-3095-11ea-8d0f-0242ac110003").getBytes(StandardCharsets.UTF_8);
+        data = ("helloworld:15cd7008-7e53-11ea-b54a-0242ac110007").getBytes(StandardCharsets.UTF_8);
 
         String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
         Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
@@ -213,12 +243,14 @@ public class SurveilActivity extends AppCompatActivity {
                 }
                 Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
                 start();
+                attachReadListener();
             }
 
             @Override
             public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
                 t.printStackTrace();
                 start();
+                attachReadListener();
                 captureButton.setEnabled(false);
                 Snackbar.make(captureButton, "Can't connect to Xirsys TURN servers. Calls over some networks won't connect", Snackbar.LENGTH_INDEFINITE)
                         .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
@@ -230,7 +262,6 @@ public class SurveilActivity extends AppCompatActivity {
             }
         });
     }
-
 
     public void start() {
 
@@ -249,9 +280,7 @@ public class SurveilActivity extends AppCompatActivity {
                 .setVideoDecoderFactory(defaultVideoDecoderFactory)
                 .setOptions(options)
                 .createPeerConnectionFactory();
-        attachReadListener();
     }
-
 
     /**
      * This method will be called directly by the app when it is the initiator and has got the local media
@@ -266,7 +295,6 @@ public class SurveilActivity extends AppCompatActivity {
             }
         });
     }
-
 
     /**
      * Creating the local peerconnection instance
@@ -308,6 +336,7 @@ public class SurveilActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             try {
                 remoteVideoTrack.addSink(remoteVideoView);
+                remoteVideoView.setKeepScreenOn(true);
                 captureButton.setEnabled(true);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -316,7 +345,6 @@ public class SurveilActivity extends AppCompatActivity {
 
     }
 
-
     /**
      * Received local ice candidate. Send it to remote peer through signalling for negotiation
      */
@@ -324,7 +352,6 @@ public class SurveilActivity extends AppCompatActivity {
         //we have received ice candidate. We can set it to the other peer.
         emitIceCandidate(iceCandidate, username);
     }
-
 
     /**
      * Called when remote peer sends offer
@@ -381,7 +408,6 @@ public class SurveilActivity extends AppCompatActivity {
         pushFun(object);
 
     }
-
 
     public void emitMessage(SessionDescription message, String username) {
 
@@ -465,34 +491,6 @@ public class SurveilActivity extends AppCompatActivity {
             captureAsync.execute(bitmap);
         }, 1.0f);
     }
-
-    /**
-     * Create a File for saving an image or video
-     */
-    private static File getOutputMediaFile() {
-        // To be safe, you should check that the SDCard is
-        // using Environment.getExternalStorageState() before doing this.
-
-        // Create a media file name
-        String timeStamp = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH).format(new Date());
-        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Security Camera/" + timeStamp + "/Remote Screens/");
-        // This location works best if you want the created images to be shared
-        // between applications and persist after your app has been uninstalled.
-        // Create the storage directory if it does not exist
-        if (!mediaStorageDir.exists()) {
-            if (!mediaStorageDir.mkdirs()) {
-                Log.d("Security Camera", "failed to create directory");
-                return null;
-            }
-        }
-
-        File mediaFile;
-        timeStamp = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH).format(new Date());
-        mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-                "Screen_" + timeStamp + ".png");
-        return mediaFile;
-    }
-
 
     public void showSnackBar(String msg, int length) {
         Snackbar.make(captureButton, msg, length)
