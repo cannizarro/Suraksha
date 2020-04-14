@@ -1,10 +1,12 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.VideoRecorder;
+
 import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import org.webrtc.EglBase;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
@@ -12,14 +14,18 @@ import java.io.File;
 public class MediaRecorderImpl {
     private final Integer id;
     private final VideoTrack videoTrack;
+    private final EglBase rootEglBase;
     //private final AudioSamplesInterceptor audioInterceptor;
     private VideoFileRenderer videoFileRenderer;
     private boolean isRunning = false;
     private File recordFile;
-    public MediaRecorderImpl(Integer id, @Nullable VideoTrack videoTrack) {
+
+    public MediaRecorderImpl(Integer id, @Nullable VideoTrack videoTrack, EglBase rootEglBase) {
         this.id = id;
         this.videoTrack = videoTrack;
+        this.rootEglBase = rootEglBase;
     }
+
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     public void startRecording(File file) throws Exception {
         recordFile = file;
@@ -31,7 +37,7 @@ public class MediaRecorderImpl {
         if (videoTrack != null) {
             videoFileRenderer = new VideoFileRenderer(
                     file.getAbsolutePath(),
-                    CameraActivity.rootEglBase.getEglBaseContext(),
+                    rootEglBase.getEglBaseContext(),
                     false
             );
             videoTrack.addSink(videoFileRenderer);
@@ -39,7 +45,11 @@ public class MediaRecorderImpl {
             Log.e(TAG, "Video track is null");
         }
     }
-    public File getRecordFile() { return recordFile; }
+
+    public File getRecordFile() {
+        return recordFile;
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     public void stopRecording() {
         isRunning = false;

@@ -1,4 +1,4 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.webRTC;
 
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -22,7 +22,7 @@ public class Utils {
 
     private Retrofit retrofitInstance;
 
-    TurnServer getRetrofitInstance() {
+    public TurnServer getRetrofitInstance() {
         if (retrofitInstance == null) {
             retrofitInstance = new Retrofit.Builder()
                     .baseUrl(API_ENDPOINT)

@@ -1,5 +1,5 @@
 
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.webRTC;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;

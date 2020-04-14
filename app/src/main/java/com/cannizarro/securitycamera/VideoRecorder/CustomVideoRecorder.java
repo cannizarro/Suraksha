@@ -1,4 +1,4 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.VideoRecorder;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -9,6 +9,7 @@ import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import org.webrtc.EglBase;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
@@ -21,15 +22,15 @@ public class CustomVideoRecorder {
 
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    void startRecordingToFile(String path, Integer id, @Nullable VideoTrack videoTrack) throws Exception {
+    public void startRecordingToFile(String path, Integer id, @Nullable VideoTrack videoTrack, EglBase rootEglBase) throws Exception {
 
-        mediaRecorder = new MediaRecorderImpl(id, videoTrack);
+        mediaRecorder = new MediaRecorderImpl(id, videoTrack, rootEglBase);
         mediaRecorder.startRecording(new File(path));
         mediaRecorders.append(id, mediaRecorder);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    void stopRecording(Integer id, Context context) {
+    public void stopRecording(Integer id, Context context) {
         MediaRecorderImpl mediaRecorder = mediaRecorders.get(id);
         if (mediaRecorder != null) {
             mediaRecorder.stopRecording();

@@ -1,7 +1,10 @@
 <resources>
     <string name="app_name">Suraksha</string>
-    <string name="dim_screen">Dim Screen</string>
+    <string name="dim_screen">Dim</string>
     <string name="online">Online</string>
-    <string name="online_stop">Stop</string>
+    <string name="stop">Stop</string>
+    <string name="capture">Record</string>
+    <string name="list_header_populous">List of online camera(s):</string>
+    <string name="list_header_empty">There are no online cameras.:(</string>
 
 </resources>

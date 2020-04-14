@@ -1,4 +1,4 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.webRTC;
 
 import org.webrtc.IceCandidate;
 import org.webrtc.SessionDescription;
@@ -13,11 +13,11 @@ public class SDP {
     public String id;
     public String candidate;
 
-    public SDP(){
+    public SDP() {
 
     }
 
-    public SDP(IceCandidate iceCandidate, String username){
+    public SDP(IceCandidate iceCandidate, String username) {
 
         this.sdp = null;
         this.username = username;

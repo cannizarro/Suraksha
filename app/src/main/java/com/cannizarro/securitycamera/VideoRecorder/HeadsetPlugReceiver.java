@@ -1,4 +1,4 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.VideoRecorder;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -20,29 +20,29 @@ public class HeadsetPlugReceiver extends BroadcastReceiver {
         }
 
         boolean connectedHeadphones = (intent.getIntExtra("state", 0) == 1);
-       // boolean connectedMicrophone = (intent.getIntExtra("microphone", 0) == 1) && connectedHeadphones;
+        // boolean connectedMicrophone = (intent.getIntExtra("microphone", 0) == 1) && connectedHeadphones;
         //String headsetName = intent.getStringExtra("name");
 
-        if(audioManager == null)
-        {
+        if (audioManager == null) {
             audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
             //noinspection ConstantConditions
-            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
             audioManager.setMode(AudioManager.MODE_NORMAL);
         }
 
-        if(connectedHeadphones){
+        if (connectedHeadphones) {
             Log.d("Hello", "connected headset");
             setSpeakerphoneOn(false);
-        }
-        else{
+        } else {
             Log.d("Hello", "disconnected headset");
             setSpeakerphoneOn(true);
         }
 
     }
 
-    /** Sets the speaker phone mode. */
+    /**
+     * Sets the speaker phone mode.
+     */
     private void setSpeakerphoneOn(boolean on) {
         boolean wasOn = audioManager.isSpeakerphoneOn();
         if (wasOn == on) {

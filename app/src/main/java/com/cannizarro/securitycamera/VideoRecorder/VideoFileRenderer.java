@@ -1,4 +1,4 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.VideoRecorder;
 
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;

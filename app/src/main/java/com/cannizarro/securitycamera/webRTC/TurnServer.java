@@ -1,7 +1,6 @@
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.webRTC;
 
 import retrofit2.Call;
-import retrofit2.http.GET;
 import retrofit2.http.Header;
 import retrofit2.http.PUT;
 

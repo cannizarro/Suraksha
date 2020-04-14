@@ -1,103 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/window"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".CameraActivity">
 
     <org.webrtc.SurfaceViewRenderer
         android:id="@+id/local_gl_surface_view"
         android:layout_width="match_parent"
-        android:layout_weight="1"
         android:layout_height="match_parent" />
 
     <LinearLayout
         android:id="@+id/linearLayout"
-        android:layout_width="fill_parent"
-        android:layout_height="80dp"
+        android:layout_width="match_parent"
+        android:layout_height="80sp"
         android:background="@android:color/transparent"
         android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        android:layout_gravity="bottom">
 
         <Button
             android:id="@+id/save"
-            android:layout_width="0.0dip"
+            android:layout_width="0sp"
             android:layout_height="fill_parent"
-            android:layout_marginLeft="8dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginRight="4dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginLeft="8sp"
+            android:layout_marginTop="8sp"
+            android:layout_marginRight="4sp"
+            android:layout_marginBottom="8sp"
             android:layout_weight="1.0"
-            android:background="@color/colorPrimaryDark"
-            android:drawableLeft="@drawable/common_full_open_on_phone"
+            android:drawableLeft="@drawable/ic_videocam"
             android:fontFamily="serif-monospace"
-            android:text="Save Locally"
-            android:textSize="18sp"
-            android:typeface="normal" />
+            android:text="Record 720"
+            android:textSize="15sp" />
 
         <Button
             android:id="@+id/screenOff"
-            android:layout_width="0.0dip"
+            android:layout_width="0sp"
             android:layout_height="fill_parent"
-            android:layout_marginLeft="4dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginRight="4dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginLeft="4sp"
+            android:layout_marginTop="8sp"
+            android:layout_marginRight="4sp"
+            android:layout_marginBottom="8sp"
             android:layout_weight="1.0"
-            android:background="@color/colorPrimaryDark"
-            android:drawableLeft="@drawable/no_mobile"
+            android:drawableLeft="@drawable/ic_brightness_low_black_24dp"
             android:fontFamily="serif-monospace"
-            android:text="Dim Screen"
-            android:textSize="18sp" />
+            android:text="@string/dim_screen"
+            android:textSize="15sp" />
+
         <Button
             android:id="@+id/online"
-            android:layout_width="0.0dip"
+            android:layout_width="0sp"
             android:layout_height="fill_parent"
-            android:layout_marginLeft="4dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginRight="8dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginStart="4sp"
+            android:layout_marginTop="8sp"
+            android:layout_marginEnd="8sp"
+            android:layout_marginBottom="8sp"
             android:layout_weight="1.0"
-            android:background="@color/colorPrimaryDark"
-            android:drawableLeft="@drawable/antenna"
+            android:drawableLeft="@drawable/ic_stream"
+            android:enabled="false"
             android:fontFamily="serif-monospace"
-            android:text="Online"
-            android:textSize="18sp" />
+            android:text="@string/online"
+            android:textSize="15sp" />
 
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/streaming"
+    <com.leinardi.android.speeddial.SpeedDialView
+        android:id="@+id/speedDial"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:visibility="invisible"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_gravity="top|end"
+        app:sdUseReverseAnimationOnClose="true"
+        app:sdExpansionMode="bottom"
+        app:sdMainFabAnimationRotateAngle="90"
+        app:sdMainFabClosedSrc="@drawable/ic_settings"
+        app:sdMainFabOpenedSrc="@drawable/ic_settings"/>
 
-        <ProgressBar
-            android:id="@+id/progressBar2"
-            style="?android:attr/progressBarStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:indeterminateTint="@android:color/holo_red_dark" />
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/back_button"
+        android:layout_gravity="top|start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16sp"
+        android:src="@drawable/ic_arrow"
+        />
 
-        <TextView
-            android:id="@+id/textView2"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:fontFamily="serif-monospace"
-            android:gravity="center"
-            android:text="Streaming"
-            android:textColor="@android:color/holo_red_dark"
-            android:textSize="20sp" />
-    </LinearLayout>
-
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

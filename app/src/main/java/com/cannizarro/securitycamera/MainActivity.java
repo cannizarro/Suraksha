@@ -1,12 +1,5 @@
 package com.cannizarro.securitycamera;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
-import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -19,6 +12,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.firebase.ui.auth.AuthUI;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -30,7 +27,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     public static final String ANONYMOUS = "anonymous";
-    public static final int RC_SIGN_IN= 1;
+    public static final int RC_SIGN_IN = 1;
     public String username;
     public boolean hasCamera;
 
@@ -82,17 +79,16 @@ public class MainActivity extends AppCompatActivity {
                             RC_SIGN_IN);
                 }
             }
-          };
+        };
 
         camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(hasCamera){
+                if (hasCamera) {
                     intent = new Intent(getApplicationContext(), CameraActivity.class);
                     intent.putExtra("username", username);
                     startActivity(intent);
-                }
-                else{
+                } else {
                     showToast("There is no camera on this device.", getApplicationContext());
                 }
             }
@@ -109,9 +105,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    /** Check if this device has a camera */
+    /**
+     * Check if this device has a camera
+     */
     private boolean checkCameraHardware(Context context) {
-        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)){
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
             // this device has a camera
             return true;
         } else {
@@ -121,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public void signOut(){
+    public void signOut() {
         AuthUI.getInstance().signOut(getApplicationContext());
     }
 
@@ -136,11 +134,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
-        switch(item.getItemId()){
+        switch (item.getItemId()) {
 
             case R.id.sign_out:
                 new AlertDialog.Builder(this)
-                        .setIcon(R.drawable.sign_out)
+                        .setIcon(R.drawable.ic_person)
                         .setTitle("Sign Out")
                         .setMessage("Are you sure?")
                         .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
@@ -149,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
                                 signOut();
                             }
                         })
-                        .setNegativeButton("No",null)
+                        .setNegativeButton("No", null)
                         .show();
                 return true;
 
@@ -160,19 +158,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data)
-    {
-        super.onActivityResult(requestCode,resultCode,data);
-        if(requestCode == RC_SIGN_IN)
-        {
-            if(resultCode == RESULT_OK)
-            {
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RC_SIGN_IN) {
+            if (resultCode == RESULT_OK) {
                 //Signed IN
                 Toast.makeText(this, "Signed In.", Toast.LENGTH_SHORT).show();
 
-            }
-            else if(resultCode == RESULT_CANCELED)
-            {
+            } else if (resultCode == RESULT_CANCELED) {
                 //Signed out
                 Toast.makeText(this, "Exiting", Toast.LENGTH_SHORT).show();
                 finish();
@@ -190,20 +183,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if(mAuthStateListner != null){
+        if (mAuthStateListner != null) {
             mFirebaseAuth.removeAuthStateListener(mAuthStateListner);
         }
     }
-    private void onSignedInInitialize(String username)
-    {
-        this.username=username;
-    }
-    private void onSignedOutCleanup()
-    {
-        this.username=ANONYMOUS;
+
+    private void onSignedInInitialize(String username) {
+        this.username = username;
     }
 
-    public void showToast(String mesasge, Context context){
+    private void onSignedOutCleanup() {
+        this.username = ANONYMOUS;
+    }
+
+    public void showToast(String mesasge, Context context) {
         Toast.makeText(context, mesasge, Toast.LENGTH_SHORT).show();
     }
 

@@ -1,19 +1,32 @@
 package com.cannizarro.securitycamera;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
 import android.media.AudioManager;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Base64;
 import android.util.Log;
-import android.widget.Button;
-import android.widget.Toast;
+import android.view.View;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
+
+import com.cannizarro.securitycamera.VideoRecorder.HeadsetPlugReceiver;
+import com.cannizarro.securitycamera.webRTC.CustomPeerConnectionObserver;
+import com.cannizarro.securitycamera.webRTC.CustomSdpObserver;
+import com.cannizarro.securitycamera.webRTC.IceServer;
+import com.cannizarro.securitycamera.webRTC.SDP;
+import com.cannizarro.securitycamera.webRTC.TurnServerPojo;
+import com.cannizarro.securitycamera.webRTC.Utils;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -23,19 +36,26 @@ import com.google.firebase.database.FirebaseDatabase;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
+import org.webrtc.EglRenderer;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
-import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoTrack;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Stack;
 
 import retrofit2.Call;
@@ -45,26 +65,27 @@ import retrofit2.Response;
 public class SurveilActivity extends AppCompatActivity {
 
     PeerConnectionFactory peerConnectionFactory;
-    MediaConstraints audioConstraints;
-    MediaConstraints videoConstraints;
-    MediaConstraints sdpConstraints;
-
-    SurfaceViewRenderer remoteVideoView;
-    SurfaceTextureHelper surfaceTextureHelper;
-    Button hangup;
-    HeadsetPlugReceiver headsetPlugReceiver;
-    AudioManager audioManager;
-
+    VideoTrack remoteVideoTrack;
+    List<PeerConnection.IceServer> peerIceServers = new ArrayList<>();
     PeerConnection localPeer;
     List<IceServer> iceServers;
     EglBase rootEglBase;
 
-    boolean isinitiator = false;
+
+    SurfaceViewRenderer remoteVideoView;
+    FloatingActionButton backButton, captureButton;
+
+
+    HeadsetPlugReceiver headsetPlugReceiver;
+    IntentFilter intentFilter;
+    AudioManager audioManager;
+    File file;
+
+
     boolean isStarted = false;
     String username;
     String cameraName;
     Stack<DatabaseReference> pushedRef;
-    List<PeerConnection.IceServer> peerIceServers = new ArrayList<>();
 
     FirebaseDatabase firebaseDatabase;
     DatabaseReference insideCameraRef;
@@ -75,48 +96,64 @@ public class SurveilActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_surveil);
 
-        if(audioManager == null)
-        {
+        if (audioManager == null) {
             audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
-            //noinspection ConstantConditions
-            audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
             audioManager.setMode(AudioManager.MODE_NORMAL);
         }
 
-        setSpeakerphoneOn(true);    //Test if speaker is working without this line
+        setSpeakerphoneOn();    //Test if speaker is working without this line
 
         headsetPlugReceiver = new HeadsetPlugReceiver();
-        IntentFilter intentFilter = new IntentFilter();
+        intentFilter = new IntentFilter();
         intentFilter.addAction("android.intent.action.HEADSET_PLUG");
-        registerReceiver(headsetPlugReceiver, intentFilter);
 
 
         Intent intent = getIntent();
         username = intent.getStringExtra("username");
         cameraName = intent.getStringExtra("cameraName");
 
-        isinitiator = false;
         firebaseDatabase = MainActivity.firebaseDatabase;
 
         insideCameraRef = firebaseDatabase.getReference(username + "/" + cameraName);
 
         pushedRef = new Stack<>();
         initViews();
-        initVideos();
 
         getIceServers();
 
-        hangup.setOnClickListener(view -> hangup());
+        rootEglBase = EglBase.create();
 
+        backButton.setOnClickListener(view -> onBackPressed());
+        captureButton.setOnClickListener(view -> captureFrame());
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        if (isStarted)
+            hangup();
+
+        remoteVideoView.release();
+        unregisterReceiver(headsetPlugReceiver);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(headsetPlugReceiver, intentFilter);
+        initVideos();
+    }
+
+
     private void initViews() {
-        hangup = findViewById(R.id.end_call);
+        backButton = findViewById(R.id.back_button);
+        captureButton = findViewById(R.id.capture_button);
         remoteVideoView = findViewById(R.id.remote_gl_surface_view);
     }
 
     private void initVideos() {
-        rootEglBase = EglBase.create();
         remoteVideoView.init(rootEglBase.getEglBaseContext(), null);
         remoteVideoView.setZOrderMediaOverlay(true);
     }
@@ -153,6 +190,8 @@ public class SurveilActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
                 t.printStackTrace();
+                showSnackBar("Can't connect to Xirsys TURN servers. Calls over some networks won't connect", remoteVideoView, Snackbar.LENGTH_INDEFINITE);
+                start();
             }
         });
     }
@@ -175,10 +214,6 @@ public class SurveilActivity extends AppCompatActivity {
                 .setVideoDecoderFactory(defaultVideoDecoderFactory)
                 .setOptions(options)
                 .createPeerConnectionFactory();
-
-        audioConstraints = new MediaConstraints();
-        videoConstraints = new MediaConstraints();
-        surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
         attachReadListener();
     }
 
@@ -193,9 +228,6 @@ public class SurveilActivity extends AppCompatActivity {
             if (!isStarted) {
                 createPeerConnection();
                 isStarted = true;
-                if (isinitiator) {
-                    doCall();
-                }
             }
         });
     }
@@ -224,8 +256,8 @@ public class SurveilActivity extends AppCompatActivity {
 
             @Override
             public void onAddStream(MediaStream mediaStream) {
-                showToast("Received camera stream");
                 super.onAddStream(mediaStream);
+                showSnackBar("Received camera stream", remoteVideoView, Snackbar.LENGTH_LONG);
                 gotRemoteStream(mediaStream);
             }
         });
@@ -233,35 +265,15 @@ public class SurveilActivity extends AppCompatActivity {
     }
 
     /**
-     * This method is called when the app is initiator - We generate the offer and send it over through socket
-     * to remote peer
-     */
-    private void doCall() {
-        sdpConstraints = new MediaConstraints();
-        sdpConstraints.mandatory.add(
-                new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair(
-                "OfferToReceiveVideo", "true"));
-        localPeer.createOffer(new CustomSdpObserver("localCreateOffer") {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                super.onCreateSuccess(sessionDescription);
-                localPeer.setLocalDescription(new CustomSdpObserver("localSetLocalDesc"), sessionDescription);
-                Log.d("onCreateSuccess", "SignallingClient emit ");
-                emitMessage(sessionDescription, username);
-            }
-        }, sdpConstraints);
-    }
-
-    /**
      * Received remote peer's media stream. we will get the first video track and render it
      */
     private void gotRemoteStream(MediaStream stream) {
         //we have remote video stream. add to the renderer.
-        final VideoTrack videoTrack = stream.videoTracks.get(0);
+        remoteVideoTrack = stream.videoTracks.get(0);
         runOnUiThread(() -> {
             try {
-                videoTrack.addSink(remoteVideoView);
+                remoteVideoTrack.addSink(remoteVideoView);
+                captureButton.setEnabled(true);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -284,7 +296,7 @@ public class SurveilActivity extends AppCompatActivity {
      */
     public void onOfferReceived(final SDP data) {
         runOnUiThread(() -> {
-            if (!isinitiator && !isStarted) {
+            if (!isStarted) {
                 onTryToStart();
             }
 
@@ -324,13 +336,6 @@ public class SurveilActivity extends AppCompatActivity {
 
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        hangup();
-        close();
-    }
-
     /**
      * Signalling Client Methods implemented
      */
@@ -349,7 +354,7 @@ public class SurveilActivity extends AppCompatActivity {
         pushFun(object);
     }
 
-    public void pushFun(SDP object){
+    public void pushFun(SDP object) {
         pushedRef.add(insideCameraRef.push());
         pushedRef.peek().setValue(object);
     }
@@ -363,8 +368,8 @@ public class SurveilActivity extends AppCompatActivity {
         finish();
     }
 
-    public void deleteEntries(){
-        while(!pushedRef.empty())
+    public void deleteEntries() {
+        while (!pushedRef.empty())
             pushedRef.pop().setValue(null);
     }
 
@@ -392,29 +397,24 @@ public class SurveilActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-
                 }
 
                 @Override
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
-
-                    showToast("Camera stopped streaming");
+                    showSnackBar("Camera stopped streaming", remoteVideoView, Snackbar.LENGTH_LONG);
                     hangup();
                 }
 
                 @Override
                 public void onChildMoved(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-
                 }
 
                 @Override
                 public void onCancelled(@NonNull DatabaseError databaseError) {
-
                 }
             };
             insideCameraRef.addChildEventListener(listener);
         }
-
     }
 
     public void detachReadListener() {
@@ -424,18 +424,120 @@ public class SurveilActivity extends AppCompatActivity {
         }
     }
 
-    public void showToast(final String msg) {
-        runOnUiThread(() -> Toast.makeText(SurveilActivity.this, msg, Toast.LENGTH_SHORT).show());
+    private void captureFrame(){
+        remoteVideoView.addFrameListener(new EglRenderer.FrameListener() {
+            @Override
+            public void onFrame(Bitmap bitmap) {
+                file = getOutputMediaFile();
+                CaptureAsync captureAsync = new CaptureAsync();
+                captureAsync.execute(bitmap);
+            }
+        }, 1.0f);
+    }
+
+    /**
+     * Create a File for saving an image or video
+     */
+    private static File getOutputMediaFile() {
+        // To be safe, you should check that the SDCard is
+        // using Environment.getExternalStorageState() before doing this.
+
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH).format(new Date());
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Security Camera/" + timeStamp + "/Remote Screens/");
+        // This location works best if you want the created images to be shared
+        // between applications and persist after your app has been uninstalled.
+        // Create the storage directory if it does not exist
+        if (!mediaStorageDir.exists()) {
+            if (!mediaStorageDir.mkdirs()) {
+                Log.d("Security Camera", "failed to create directory");
+                return null;
+            }
+        }
+
+        File mediaFile;
+        timeStamp = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH).format(new Date());
+        mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+                "Screen_" + timeStamp + ".png");
+        return mediaFile;
     }
 
 
-    /** Sets the speaker phone mode. */
-    private void setSpeakerphoneOn(@SuppressWarnings("SameParameterValue") boolean on) {
+    public void showSnackBar(String msg, View v, int length) {
+        Snackbar.make(v, msg, length)
+                .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
+                .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                .show();
+    }
+
+    public void showSnackBar(final File file, View anchorView, int length) throws IOException {
+        Snackbar.make(anchorView, "Video saved. Path: " + file.getParent(), length)
+                .setAction("View Video", new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // Respond to the click, such as by undoing the modification that caused
+                        // Create the text message with a string
+
+                        Uri selectedUri = FileProvider.getUriForFile(getApplicationContext(), getApplicationContext().getPackageName() + ".provider", file);
+                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                        intent.setDataAndType(selectedUri, "image/png");
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                        if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
+                            startActivity(intent);
+                        } else {
+                            // if you reach this place, it means there is no any file
+                            // explorer app installed on your device
+                            showSnackBar("No application to view png image.", anchorView, Snackbar.LENGTH_LONG);
+
+                        }
+                    }
+                })
+                .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
+                .setActionTextColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()))
+                .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                .show();
+    }
+
+
+    /**
+     * Sets the speaker phone mode.
+     */
+    private void setSpeakerphoneOn() {
         boolean wasOn = audioManager.isSpeakerphoneOn();
-        if (wasOn == on) {
+        if (wasOn == true) {
             return;
         }
-        audioManager.setSpeakerphoneOn(on);
+        audioManager.setSpeakerphoneOn(true);
+    }
+
+    //Creating a child of AsyncTask class named Save to run the saving the image procedure for saving each image in order of their pages
+    public class CaptureAsync extends AsyncTask<Bitmap, Void, Void>
+    {
+        @Override
+        protected Void doInBackground(Bitmap... bitmaps) {
+            try {
+                FileOutputStream outputStream = new FileOutputStream(file);
+                bitmaps[0].compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+                outputStream.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+            try {
+                showSnackBar(file, remoteVideoView, Snackbar.LENGTH_LONG);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
     }
 }
 

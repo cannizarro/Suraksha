@@ -1,5 +1,5 @@
 
-package com.cannizarro.securitycamera;
+package com.cannizarro.securitycamera.webRTC;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -21,7 +21,7 @@ public class TurnServerPojo {
     @Expose
     public IceServerList iceServerList;
 
-    class IceServerList {
+    public class IceServerList {
 
         @SerializedName("iceServers")
         @Expose
