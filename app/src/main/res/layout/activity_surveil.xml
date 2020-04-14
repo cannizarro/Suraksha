@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".SurveilActivity">
 
     <org.webrtc.SurfaceViewRenderer
@@ -19,7 +19,8 @@
         android:layout_gravity="top|start"
         android:layout_margin="16sp"
         android:src="@drawable/ic_arrow"
-        />
+        app:rippleColor="@color/colorSecondaryVariant" />
+
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/capture_button"
@@ -27,11 +28,12 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_margin="40sp"
-        app:fabCustomSize="80sp"
-        android:background="@color/colorPrimary"
-        android:src="@drawable/ic_camera"
+        android:backgroundTint="@color/colorPrimary"
         android:enabled="false"
-        />
+        android:src="@drawable/ic_camera"
+        app:borderWidth="0sp"
+        app:fabCustomSize="80sp"
+        app:rippleColor="@color/colorPrimaryVariant" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
 

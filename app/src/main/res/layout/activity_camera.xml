@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".CameraActivity">
 
     <org.webrtc.SurfaceViewRenderer
@@ -15,11 +15,11 @@
         android:id="@+id/linearLayout"
         android:layout_width="match_parent"
         android:layout_height="80sp"
+        android:layout_gravity="bottom"
         android:background="@android:color/transparent"
-        android:orientation="horizontal"
-        android:layout_gravity="bottom">
+        android:orientation="horizontal">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/save"
             android:layout_width="0sp"
             android:layout_height="fill_parent"
@@ -31,9 +31,10 @@
             android:drawableLeft="@drawable/ic_videocam"
             android:fontFamily="serif-monospace"
             android:text="Record 720"
-            android:textSize="15sp" />
+            android:textSize="15sp"
+            app:rippleColor="@color/colorPrimaryVariant" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/screenOff"
             android:layout_width="0sp"
             android:layout_height="fill_parent"
@@ -45,9 +46,10 @@
             android:drawableLeft="@drawable/ic_brightness_low_black_24dp"
             android:fontFamily="serif-monospace"
             android:text="@string/dim_screen"
-            android:textSize="15sp" />
+            android:textSize="15sp"
+            app:rippleColor="@color/colorPrimaryVariant" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/online"
             android:layout_width="0sp"
             android:layout_height="fill_parent"
@@ -60,8 +62,8 @@
             android:enabled="false"
             android:fontFamily="serif-monospace"
             android:text="@string/online"
-            android:textSize="15sp" />
-
+            android:textSize="15sp"
+            app:rippleColor="@color/colorPrimaryVariant" />
     </LinearLayout>
 
     <com.leinardi.android.speeddial.SpeedDialView
@@ -69,19 +71,19 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        app:sdUseReverseAnimationOnClose="true"
         app:sdExpansionMode="bottom"
         app:sdMainFabAnimationRotateAngle="90"
         app:sdMainFabClosedSrc="@drawable/ic_settings"
-        app:sdMainFabOpenedSrc="@drawable/ic_settings"/>
+        app:sdMainFabOpenedSrc="@drawable/ic_settings"
+        app:sdUseReverseAnimationOnClose="true" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/back_button"
-        android:layout_gravity="top|start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
         android:layout_margin="16sp"
         android:src="@drawable/ic_arrow"
-        />
+        app:rippleColor="@color/colorSecondaryVariant" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

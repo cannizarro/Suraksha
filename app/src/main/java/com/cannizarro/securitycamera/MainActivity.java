@@ -1,14 +1,12 @@
 package com.cannizarro.securitycamera;
 
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -21,7 +19,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.FirebaseDatabase;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -54,53 +52,43 @@ public class MainActivity extends AppCompatActivity {
 
         mFirebaseAuth = FirebaseAuth.getInstance();
 
-        mAuthStateListner = new FirebaseAuth.AuthStateListener() {
-            @Override
-            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+        mAuthStateListner = firebaseAuth -> {
 
 
-                FirebaseUser firebaseUser = firebaseAuth.getCurrentUser();
-                if (firebaseUser != null) {
-                    //signed in
-                    MainActivity.this.onSignedInInitialize(firebaseUser.getDisplayName());
-                } else {
-                    //signed out
-                    MainActivity.this.onSignedOutCleanup();
-                    // Choose authentication providers
-                    List<AuthUI.IdpConfig> providers = Arrays.asList(
-                            new AuthUI.IdpConfig.GoogleBuilder().build());
+            FirebaseUser firebaseUser = firebaseAuth.getCurrentUser();
+            if (firebaseUser != null) {
+                //signed in
+                MainActivity.this.onSignedInInitialize(firebaseUser.getDisplayName());
+            } else {
+                //signed out
+                MainActivity.this.onSignedOutCleanup();
+                // Choose authentication providers
+                List<AuthUI.IdpConfig> providers = Collections.singletonList(new AuthUI.IdpConfig.GoogleBuilder().build());
 
-                    // Create and launch sign-in intent
-                    MainActivity.this.startActivityForResult(
-                            AuthUI.getInstance()
-                                    .createSignInIntentBuilder()
-                                    .setAvailableProviders(providers)
-                                    .build(),
-                            RC_SIGN_IN);
-                }
+                // Create and launch sign-in intent
+                MainActivity.this.startActivityForResult(
+                        AuthUI.getInstance()
+                                .createSignInIntentBuilder()
+                                .setAvailableProviders(providers)
+                                .build(),
+                        RC_SIGN_IN);
             }
         };
 
-        camera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (hasCamera) {
-                    intent = new Intent(getApplicationContext(), CameraActivity.class);
-                    intent.putExtra("username", username);
-                    startActivity(intent);
-                } else {
-                    showToast("There is no camera on this device.", getApplicationContext());
-                }
+        camera.setOnClickListener(view -> {
+            if (hasCamera) {
+                intent = new Intent(getApplicationContext(), CameraActivity.class);
+                intent.putExtra("username", username);
+                startActivity(intent);
+            } else {
+                showToast("There is no camera on this device.", getApplicationContext());
             }
         });
 
-        surveil.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                intent = new Intent(getApplicationContext(), CameraListActivity.class);
-                intent.putExtra("username", username);
-                startActivity(intent);
-            }
+        surveil.setOnClickListener(view -> {
+            intent = new Intent(getApplicationContext(), CameraListActivity.class);
+            intent.putExtra("username", username);
+            startActivity(intent);
         });
     }
 
@@ -109,13 +97,9 @@ public class MainActivity extends AppCompatActivity {
      * Check if this device has a camera
      */
     private boolean checkCameraHardware(Context context) {
-        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
-            // this device has a camera
-            return true;
-        } else {
-            // no camera on this device
-            return false;
-        }
+        // this device has a camera
+        // no camera on this device
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
     }
 
 
@@ -134,26 +118,17 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
-        switch (item.getItemId()) {
-
-            case R.id.sign_out:
-                new AlertDialog.Builder(this)
-                        .setIcon(R.drawable.ic_person)
-                        .setTitle("Sign Out")
-                        .setMessage("Are you sure?")
-                        .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialogInterface, int i) {
-                                signOut();
-                            }
-                        })
-                        .setNegativeButton("No", null)
-                        .show();
-                return true;
-
-            default:
-                return super.onOptionsItemSelected(item);
+        if (item.getItemId() == R.id.sign_out) {
+            new AlertDialog.Builder(this)
+                    .setIcon(R.drawable.ic_person)
+                    .setTitle("Sign Out")
+                    .setMessage("Are you sure?")
+                    .setPositiveButton("Yes", (dialogInterface, i) -> signOut())
+                    .setNegativeButton("No", null)
+                    .show();
+            return true;
         }
+        return super.onOptionsItemSelected(item);
 
     }
 

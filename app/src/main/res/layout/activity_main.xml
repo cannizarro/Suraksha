@@ -3,11 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:gravity="center"
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -15,7 +16,7 @@
         android:text="Use this phone as a :"
         android:textSize="24sp" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/camera"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -23,9 +24,10 @@
         android:drawableLeft="@drawable/ic_security"
         android:fontFamily="serif-monospace"
         android:text="Security Camera"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        app:rippleColor="@color/colorPrimaryVariant"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/surveil"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -33,5 +35,6 @@
         android:drawableLeft="@drawable/ic_tv"
         android:fontFamily="serif-monospace"
         android:text="Surveillance Device"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        app:rippleColor="@color/colorPrimaryVariant"/>
 </LinearLayout>

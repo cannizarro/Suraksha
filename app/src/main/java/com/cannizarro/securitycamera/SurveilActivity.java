@@ -1,8 +1,10 @@
 package com.cannizarro.securitycamera;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -11,11 +13,13 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Base64;
 import android.util.Log;
-import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import com.cannizarro.securitycamera.VideoRecorder.HeadsetPlugReceiver;
@@ -36,7 +40,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
-import org.webrtc.EglRenderer;
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
@@ -47,7 +50,6 @@ import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -64,13 +66,17 @@ import retrofit2.Response;
 
 public class SurveilActivity extends AppCompatActivity {
 
+    final int ALL_PERMISSIONS_CODE = 1;
+    String[] permissions = {Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+
     PeerConnectionFactory peerConnectionFactory;
     VideoTrack remoteVideoTrack;
     List<PeerConnection.IceServer> peerIceServers = new ArrayList<>();
     PeerConnection localPeer;
     List<IceServer> iceServers;
     EglBase rootEglBase;
-
 
     SurfaceViewRenderer remoteVideoView;
     FloatingActionButton backButton, captureButton;
@@ -99,7 +105,7 @@ public class SurveilActivity extends AppCompatActivity {
         if (audioManager == null) {
             audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
             audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.setMode(AudioManager.MODE_CURRENT);
         }
 
         setSpeakerphoneOn();    //Test if speaker is working without this line
@@ -126,7 +132,29 @@ public class SurveilActivity extends AppCompatActivity {
 
         backButton.setOnClickListener(view -> onBackPressed());
         captureButton.setOnClickListener(view -> captureFrame());
+
+        if (ContextCompat.checkSelfPermission(this, permissions[0]) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, permissions[1]) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, permissions, ALL_PERMISSIONS_CODE);
+        }
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode != ALL_PERMISSIONS_CODE
+                || grantResults.length != 2
+                || grantResults[0] != PackageManager.PERMISSION_GRANTED
+                || grantResults[1] != PackageManager.PERMISSION_GRANTED) {
+
+            //All permissions are not granted
+            finish();
+        } else {
+            Toast.makeText(this, "Required permissions are not granted.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 
     @Override
     protected void onPause() {
@@ -190,8 +218,15 @@ public class SurveilActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
                 t.printStackTrace();
-                showSnackBar("Can't connect to Xirsys TURN servers. Calls over some networks won't connect", remoteVideoView, Snackbar.LENGTH_INDEFINITE);
                 start();
+                captureButton.setEnabled(false);
+                Snackbar.make(captureButton, "Can't connect to Xirsys TURN servers. Calls over some networks won't connect", Snackbar.LENGTH_INDEFINITE)
+                        .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
+                        .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                        .setAnchorView(captureButton)
+                        .setActionTextColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()))
+                        .setAction("Retry", view -> getIceServers())
+                        .show();
             }
         });
     }
@@ -257,7 +292,7 @@ public class SurveilActivity extends AppCompatActivity {
             @Override
             public void onAddStream(MediaStream mediaStream) {
                 super.onAddStream(mediaStream);
-                showSnackBar("Received camera stream", remoteVideoView, Snackbar.LENGTH_LONG);
+                showSnackBar("Received camera stream", Snackbar.LENGTH_LONG);
                 gotRemoteStream(mediaStream);
             }
         });
@@ -376,7 +411,6 @@ public class SurveilActivity extends AppCompatActivity {
     public void attachReadListener() {
 
         if (listener == null) {
-
             listener = new ChildEventListener() {
                 @Override
                 public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
@@ -401,7 +435,7 @@ public class SurveilActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
-                    showSnackBar("Camera stopped streaming", remoteVideoView, Snackbar.LENGTH_LONG);
+                    Toast.makeText(SurveilActivity.this, "Camera stopped streaming", Toast.LENGTH_SHORT).show();
                     hangup();
                 }
 
@@ -424,14 +458,11 @@ public class SurveilActivity extends AppCompatActivity {
         }
     }
 
-    private void captureFrame(){
-        remoteVideoView.addFrameListener(new EglRenderer.FrameListener() {
-            @Override
-            public void onFrame(Bitmap bitmap) {
-                file = getOutputMediaFile();
-                CaptureAsync captureAsync = new CaptureAsync();
-                captureAsync.execute(bitmap);
-            }
+    private void captureFrame() {
+        remoteVideoView.addFrameListener(bitmap -> {
+            file = getOutputMediaFile();
+            CaptureAsync captureAsync = new CaptureAsync();
+            captureAsync.execute(bitmap);
         }, 1.0f);
     }
 
@@ -463,39 +494,37 @@ public class SurveilActivity extends AppCompatActivity {
     }
 
 
-    public void showSnackBar(String msg, View v, int length) {
-        Snackbar.make(v, msg, length)
+    public void showSnackBar(String msg, int length) {
+        Snackbar.make(captureButton, msg, length)
                 .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
                 .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                .setAnchorView(captureButton)
                 .show();
     }
 
-    public void showSnackBar(final File file, View anchorView, int length) throws IOException {
-        Snackbar.make(anchorView, "Video saved. Path: " + file.getParent(), length)
-                .setAction("View Video", new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // Respond to the click, such as by undoing the modification that caused
-                        // Create the text message with a string
-
-                        Uri selectedUri = FileProvider.getUriForFile(getApplicationContext(), getApplicationContext().getPackageName() + ".provider", file);
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setDataAndType(selectedUri, "image/png");
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                        if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
-                            startActivity(intent);
-                        } else {
-                            // if you reach this place, it means there is no any file
-                            // explorer app installed on your device
-                            showSnackBar("No application to view png image.", anchorView, Snackbar.LENGTH_LONG);
-
-                        }
-                    }
-                })
+    public void showSnackBar(final File file, int length) {
+        Snackbar.make(captureButton, "Video saved. Path: " + file.getParent(), length)
                 .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
                 .setActionTextColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()))
                 .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                .setAnchorView(captureButton)
+                .setAction("View Image", v -> {
+                    // Respond to the click, such as by undoing the modification that caused
+                    // Create the text message with a string
+
+                    Uri selectedUri = FileProvider.getUriForFile(getApplicationContext(), getApplicationContext().getPackageName() + ".provider", file);
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setDataAndType(selectedUri, "image/png");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                    if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
+                        startActivity(intent);
+                    } else {
+                        // if you reach this place, it means there is no any file
+                        // explorer app installed on your device
+                        showSnackBar("No application to view png image.", Snackbar.LENGTH_LONG);
+                    }
+                })
                 .show();
     }
 
@@ -505,23 +534,20 @@ public class SurveilActivity extends AppCompatActivity {
      */
     private void setSpeakerphoneOn() {
         boolean wasOn = audioManager.isSpeakerphoneOn();
-        if (wasOn == true) {
+        if (wasOn) {
             return;
         }
         audioManager.setSpeakerphoneOn(true);
     }
 
     //Creating a child of AsyncTask class named Save to run the saving the image procedure for saving each image in order of their pages
-    public class CaptureAsync extends AsyncTask<Bitmap, Void, Void>
-    {
+    public class CaptureAsync extends AsyncTask<Bitmap, Void, Void> {
         @Override
         protected Void doInBackground(Bitmap... bitmaps) {
             try {
                 FileOutputStream outputStream = new FileOutputStream(file);
                 bitmaps[0].compress(Bitmap.CompressFormat.PNG, 100, outputStream);
                 outputStream.close();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -531,11 +557,7 @@ public class SurveilActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
-            try {
-                showSnackBar(file, remoteVideoView, Snackbar.LENGTH_LONG);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            showSnackBar(file, Snackbar.LENGTH_LONG);
         }
 
     }

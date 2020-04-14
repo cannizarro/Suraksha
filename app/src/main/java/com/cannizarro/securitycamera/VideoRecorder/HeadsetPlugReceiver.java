@@ -27,7 +27,7 @@ public class HeadsetPlugReceiver extends BroadcastReceiver {
             audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
             //noinspection ConstantConditions
             audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.setMode(AudioManager.MODE_CURRENT);
         }
 
         if (connectedHeadphones) {

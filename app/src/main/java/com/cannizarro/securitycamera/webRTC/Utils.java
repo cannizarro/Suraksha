@@ -10,8 +10,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class Utils {
 
-    static Utils instance;
-    public static final String API_ENDPOINT = "https://global.xirsys.net";
+    private static Utils instance;
+    private static final String API_ENDPOINT = "https://global.xirsys.net";
 
     public static Utils getInstance() {
         if (instance == null) {

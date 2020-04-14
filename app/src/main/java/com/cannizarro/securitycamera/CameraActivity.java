@@ -10,10 +10,10 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Base64;
 import android.util.Log;
-import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -63,7 +63,6 @@ import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -198,17 +197,13 @@ public class CameraActivity extends AppCompatActivity {
             return false;
         });
 
-        backButton.setOnClickListener(view -> {
-            onBackPressed();
-        });
+        backButton.setOnClickListener(view -> onBackPressed());
 
         if (ContextCompat.checkSelfPermission(this, permissions[0]) != PackageManager.PERMISSION_GRANTED
                 || ContextCompat.checkSelfPermission(this, permissions[1]) != PackageManager.PERMISSION_GRANTED
                 || ContextCompat.checkSelfPermission(this, permissions[2]) != PackageManager.PERMISSION_GRANTED
                 || ContextCompat.checkSelfPermission(this, permissions[3]) != PackageManager.PERMISSION_GRANTED) {
-
             ActivityCompat.requestPermissions(this, permissions, ALL_PERMISSIONS_CODE);
-
         }
 
         getIceServers();
@@ -227,6 +222,8 @@ public class CameraActivity extends AppCompatActivity {
 
             //All permissions are not granted
             finish();
+        } else {
+            Toast.makeText(this, "Required permissions are not granted.", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -304,9 +301,19 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
                 t.printStackTrace();
-                showSnackBar("Can't connect to Xirsys TURN servers. Calls over some networks won't connect", buttonGroupLayout, Snackbar.LENGTH_INDEFINITE);
                 isChannelReady = true;
                 onlineButton.setEnabled(true);
+                Snackbar.make(buttonGroupLayout, "Can't connect to Xirsys TURN servers. Calls over some networks won't connect", Snackbar.LENGTH_INDEFINITE)
+                        .setAnchorView(buttonGroupLayout)
+                        .setActionTextColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()))
+                        .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
+                        .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                        .setAction("Retry", view -> {
+                            getIceServers();
+                            onlineButton.setEnabled(false);
+                            isChannelReady = false;
+                        })
+                        .show();
             }
         });
     }
@@ -378,49 +385,53 @@ public class CameraActivity extends AppCompatActivity {
         TextInputLayout textInputLayout = (TextInputLayout) getLayoutInflater().inflate(R.layout.my_text_input, null);
         TextInputEditText input = (TextInputEditText) textInputLayout.getEditText();
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setIcon(R.drawable.ic_security)
-                .setTitle("Set camera name")
-                .setMessage("If you want to go online, please set this camera's name.")
-                .setView(textInputLayout)
-                .setPositiveButton("OK", (dialogInterface, i) -> {
-                    cameraName = input.getText().toString();
-                    insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
+        if (input != null) {
 
-                    onTryToStart();
+            AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                    .setIcon(R.drawable.ic_security)
+                    .setTitle("Set camera name")
+                    .setMessage("If you want to go online, please set this camera's name.")
+                    .setView(textInputLayout)
+                    .setPositiveButton("OK", (dialogInterface, i) -> {
+                        cameraName = input.getText().toString();
+                        insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
 
-                    attachReadListener();
-                    showSnackBar("Camera name set", buttonGroupLayout, Snackbar.LENGTH_LONG);
-                    onlineButton.setText(R.string.stop);
-                    onlineButton.setBackgroundColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()));
-                    localVideoView.setKeepScreenOn(true);
-                })
-                .setNegativeButton("Cancel", (dialogInterface, i) -> dialogInterface.cancel());
+                        onTryToStart();
 
-        AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(dialog1 -> ((AlertDialog) dialog1).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false));
+                        attachReadListener();
+                        showSnackBar("Camera name set", Snackbar.LENGTH_LONG);
+                        onlineButton.setText(R.string.stop);
+                        onlineButton.setBackgroundColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()));
+                        localVideoView.setKeepScreenOn(true);
+                    })
+                    .setNegativeButton("Cancel", (dialogInterface, i) -> dialogInterface.cancel());
 
-        // Enable Send button when there's text to send
-        input.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-            }
+            AlertDialog dialog = builder.create();
+            dialog.setOnShowListener(dialog1 -> ((AlertDialog) dialog1).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false));
 
-            @Override
-            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                if (charSequence.toString().trim().length() > 0) {
-                    (dialog).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
-                } else {
-                    (dialog).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            // Enable Send button when there's text to send
+            input.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 }
-            }
 
-            @Override
-            public void afterTextChanged(Editable editable) {
-            }
-        });
+                @Override
+                public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                    if (charSequence.toString().trim().length() > 0) {
+                        (dialog).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+                    } else {
+                        (dialog).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+                    }
+                }
 
-        dialog.show();
+                @Override
+                public void afterTextChanged(Editable editable) {
+                }
+            });
+
+            dialog.show();
+
+        }
     }
 
     /**
@@ -506,7 +517,7 @@ public class CameraActivity extends AppCompatActivity {
      * Called when remote peer sends answer to your offer
      */
     public void onAnswerReceived(SDP data) {
-        showSnackBar("Streamer added", buttonGroupLayout, Snackbar.LENGTH_LONG);
+        showSnackBar("Streamer added", Snackbar.LENGTH_LONG);
         localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.fromCanonicalForm(data.type.toLowerCase()), data.sdp));
 
     }
@@ -570,13 +581,10 @@ public class CameraActivity extends AppCompatActivity {
      * Attaching read listener to the inside camera reference.
      */
     public void attachReadListener() {
-
         if (listener == null) {
-
             listener = new ChildEventListener() {
                 @Override
                 public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-
                     SDP object = dataSnapshot.getValue(SDP.class);
 
                     if (object != null && !object.username.equals(cameraName)) {
@@ -593,13 +601,11 @@ public class CameraActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-
                 }
 
                 @Override
                 public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
-
-                    showSnackBar("Streamer Disconnected", buttonGroupLayout, Snackbar.LENGTH_LONG);
+                    showSnackBar("Streamer Disconnected", Snackbar.LENGTH_LONG);
                     hangup();
                     insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
                     onTryToStart();
@@ -608,12 +614,10 @@ public class CameraActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildMoved(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-
                 }
 
                 @Override
                 public void onCancelled(@NonNull DatabaseError databaseError) {
-
                 }
             };
             insideCameraRef.addChildEventListener(listener);
@@ -646,7 +650,7 @@ public class CameraActivity extends AppCompatActivity {
                 // inform the user that recording has stopped
                 captureButton.setText("Record " + recordingQuality);
                 captureButton.setBackgroundColor(getResources().getColor(R.color.colorPrimary, getResources().newTheme()));
-                showSnackBar(file, buttonGroupLayout, Snackbar.LENGTH_LONG);
+                showSnackBar(file, Snackbar.LENGTH_LONG);
                 isRecording = false;
             } else {
                 localVideoView.setKeepScreenOn(true);
@@ -729,41 +733,38 @@ public class CameraActivity extends AppCompatActivity {
         return mediaFile;
     }
 
-    public void showSnackBar(String msg, View v, int length) {
-        Snackbar.make(v, msg, length)
-                .setAnchorView(v)
+    public void showSnackBar(String msg, int length) {
+        Snackbar.make(buttonGroupLayout, msg, length)
+                .setAnchorView(buttonGroupLayout)
                 .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
                 .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
                 .show();
     }
 
-    public void showSnackBar(final File file, View anchorView, int length) throws IOException {
-        Snackbar.make(anchorView, "Video saved. Path: " + file.getParent(), length)
-                .setAction("View Video", new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // Respond to the click, such as by undoing the modification that caused
-                        // Create the text message with a string
-
-                        Uri selectedUri = FileProvider.getUriForFile(getApplicationContext(), getApplicationContext().getPackageName() + ".provider", file);
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setDataAndType(selectedUri, "video/mp4");
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                        if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
-                            startActivity(intent);
-                        } else {
-                            // if you reach this place, it means there is no any file
-                            // explorer app installed on your device
-                            showSnackBar("No application to view mp4 video.", anchorView, Snackbar.LENGTH_LONG);
-
-                        }
-                    }
-                })
-                .setAnchorView(anchorView)
+    public void showSnackBar(final File file, int length) {
+        Snackbar.make(buttonGroupLayout, "Video saved. Path: " + file.getParent(), length)
+                .setAnchorView(buttonGroupLayout)
                 .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
                 .setActionTextColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()))
                 .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
+                .setAction("View Video", v -> {
+                    // Respond to the click, such as by undoing the modification that caused
+                    // Create the text message with a string
+
+                    Uri selectedUri = FileProvider.getUriForFile(getApplicationContext(), getApplicationContext().getPackageName() + ".provider", file);
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setDataAndType(selectedUri, "video/mp4");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                    if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
+                        startActivity(intent);
+                    } else {
+                        // if you reach this place, it means there is no any file
+                        // explorer app installed on your device
+                        showSnackBar("No application to view mp4 video.", Snackbar.LENGTH_LONG);
+
+                    }
+                })
                 .show();
     }
 

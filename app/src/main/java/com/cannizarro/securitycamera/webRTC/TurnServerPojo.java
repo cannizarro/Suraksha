@@ -8,15 +8,9 @@ import java.util.List;
 
 public class TurnServerPojo {
 
-    @SerializedName("s")
     @Expose
     public String s;
-    @SerializedName("p")
-    @Expose
-    public String p;
-    @SerializedName("e")
-    @Expose
-    public Object e;
+
     @SerializedName("v")
     @Expose
     public IceServerList iceServerList;

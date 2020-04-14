@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -62,20 +61,17 @@ public class CameraListActivity extends AppCompatActivity {
             listView = (getLayoutInflater().inflate(R.layout.my_list_view, parent, true)).findViewById(R.id.cameraList);
             adapter = new MyAdapter();
             listView.setAdapter(adapter);
-            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                    cameraName = roomList.get(i);
-                    Intent intent1 = new Intent(getApplicationContext(), SurveilActivity.class)
-                            .putExtra("username", username)
-                            .putExtra("cameraName", cameraName);
+            listView.setOnItemClickListener((adapterView, view, i, l) -> {
+                cameraName = roomList.get(i);
+                Intent intent1 = new Intent(getApplicationContext(), SurveilActivity.class)
+                        .putExtra("username", username)
+                        .putExtra("cameraName", cameraName);
 
-                    Log.d("Asrar Debug", cameraName + " : Roomname");
+                Log.d("Asrar Debug", cameraName + " : Roomname");
 
-                    //Roomkeys is the real room name which enables us to have multiple rooms of same name
+                //Roomkeys is the real room name which enables us to have multiple rooms of same name
 
-                    startActivity(intent1);
-                }
+                startActivity(intent1);
             });
 
         }

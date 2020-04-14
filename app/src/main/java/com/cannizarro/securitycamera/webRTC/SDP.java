@@ -14,7 +14,6 @@ public class SDP {
     public String candidate;
 
     public SDP() {
-
     }
 
     public SDP(IceCandidate iceCandidate, String username) {
