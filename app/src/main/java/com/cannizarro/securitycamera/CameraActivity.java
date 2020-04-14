@@ -453,6 +453,8 @@ public class CameraActivity extends AppCompatActivity {
      * Creating the local peerconnection instance
      */
     private void createPeerConnection() {
+
+        Log.d("onApiResponsecreatePeerConn", "IceServers\n" + peerIceServers.toString());
         PeerConnection.RTCConfiguration rtcConfig =
                 new PeerConnection.RTCConfiguration(peerIceServers);
         // TCP candidates are only useful when connecting to a server that supports

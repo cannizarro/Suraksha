@@ -151,11 +151,12 @@ public class SurveilActivity extends AppCompatActivity {
         insideCameraRef = firebaseDatabase.getReference(username + "/" + cameraName);
 
         pushedRef = new Stack<>();
+        rootEglBase = EglBase.create();
         initViews();
+        initVideos();
 
         getIceServers();
 
-        rootEglBase = EglBase.create();
 
         backButton.setOnClickListener(view -> onBackPressed());
         captureButton.setOnClickListener(view -> captureFrame());
@@ -186,8 +187,6 @@ public class SurveilActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         registerReceiver(headsetPlugReceiver, intentFilter);
-        initVideos();
-        start();
     }
 
     @Override
@@ -243,22 +242,11 @@ public class SurveilActivity extends AppCompatActivity {
                 }
                 Log.d("onApiResponse", "IceServers\n" + iceServers.toString());
                 start();
-                attachReadListener();
             }
 
             @Override
             public void onFailure(@NonNull Call<TurnServerPojo> call, @NonNull Throwable t) {
                 t.printStackTrace();
-                start();
-                attachReadListener();
-                captureButton.setEnabled(false);
-                Snackbar.make(captureButton, "Can't connect to Xirsys TURN servers. Calls over some networks won't connect", Snackbar.LENGTH_INDEFINITE)
-                        .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
-                        .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
-                        .setAnchorView(captureButton)
-                        .setActionTextColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()))
-                        .setAction("Retry", view -> getIceServers())
-                        .show();
             }
         });
     }
@@ -280,6 +268,7 @@ public class SurveilActivity extends AppCompatActivity {
                 .setVideoDecoderFactory(defaultVideoDecoderFactory)
                 .setOptions(options)
                 .createPeerConnectionFactory();
+        attachReadListener();
     }
 
     /**
@@ -300,6 +289,8 @@ public class SurveilActivity extends AppCompatActivity {
      * Creating the local peerconnection instance
      */
     private void createPeerConnection() {
+
+        Log.d("onApiResponsecreatePeerConn", "IceServers\n" + peerIceServers.toString());
         PeerConnection.RTCConfiguration rtcConfig =
                 new PeerConnection.RTCConfiguration(peerIceServers);
         // TCP candidates are only useful when connecting to a server that supports
