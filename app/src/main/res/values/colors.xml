@@ -7,6 +7,8 @@
     <color name="colorSecondaryVariant">#fb1f15</color>
     <color name="colorOnSecondary">#FFFFFF</color>
     <color name="material_dark_grey">#424242</color>
+    <color name="colorPrimaryBright">#15f1fb</color>
+    <color name="colorPrimary_a200">#60a7fc</color>
 
     <!--<color name="colorPrimaryDark">#0465d9</color>
     <color name="colorAccent">#0D509E</color>

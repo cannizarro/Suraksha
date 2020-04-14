@@ -14,11 +14,13 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.firebase.ui.auth.AuthMethodPickerLayout;
 import com.firebase.ui.auth.AuthUI;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -63,13 +65,17 @@ public class MainActivity extends AppCompatActivity {
                 //signed out
                 MainActivity.this.onSignedOutCleanup();
                 // Choose authentication providers
-                List<AuthUI.IdpConfig> providers = Collections.singletonList(new AuthUI.IdpConfig.GoogleBuilder().build());
+                List<AuthUI.IdpConfig> providers = Arrays.asList(
+                        new AuthUI.IdpConfig.EmailBuilder().build(),
+                        new AuthUI.IdpConfig.GoogleBuilder().build());
 
                 // Create and launch sign-in intent
                 MainActivity.this.startActivityForResult(
                         AuthUI.getInstance()
                                 .createSignInIntentBuilder()
                                 .setAvailableProviders(providers)
+                                .setTheme(R.style.LoginTheme)
+                                .setLogo(R.drawable.ic_app_icon)
                                 .build(),
                         RC_SIGN_IN);
             }
@@ -121,8 +127,8 @@ public class MainActivity extends AppCompatActivity {
         if (item.getItemId() == R.id.sign_out) {
             new AlertDialog.Builder(this)
                     .setIcon(R.drawable.ic_person)
-                    .setTitle("Sign Out")
-                    .setMessage("Are you sure?")
+                    .setTitle("Signed in as '" + username + "'")
+                    .setMessage("Are you sure to sign out?")
                     .setPositiveButton("Yes", (dialogInterface, i) -> signOut())
                     .setNegativeButton("No", null)
                     .show();

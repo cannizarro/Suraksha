@@ -44,7 +44,6 @@ public class CameraListActivity extends AppCompatActivity {
         username = intent.getStringExtra("username");
         roomList = new ArrayList<>();
         firebaseDatabase = FirebaseDatabase.getInstance();
-
         textView = findViewById(R.id.list_header);
         parent = (ViewGroup) textView.getParent();
 

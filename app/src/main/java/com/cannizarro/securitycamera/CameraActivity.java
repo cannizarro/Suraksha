@@ -10,6 +10,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Base64;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -310,9 +311,9 @@ public class CameraActivity extends AppCompatActivity {
                         .setTextColor(getResources().getColor(R.color.colorOnPrimary, getResources().newTheme()))
                         .setBackgroundTint(getResources().getColor(R.color.material_dark_grey, getResources().newTheme()))
                         .setAction("Retry", view -> {
-                            getIceServers();
-                            onlineButton.setEnabled(false);
                             isChannelReady = false;
+                            onlineButton.setEnabled(false);
+                            getIceServers();
                         })
                         .show();
             }
@@ -401,7 +402,7 @@ public class CameraActivity extends AppCompatActivity {
 
                         attachReadListener();
                         showSnackBar("Camera name set", Snackbar.LENGTH_LONG);
-                        onlineButton.setText(R.string.stop);
+                        onlineButton.setText("Stop " + cameraName);
                         onlineButton.setBackgroundColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()));
                         localVideoView.setKeepScreenOn(true);
                     })
@@ -678,7 +679,6 @@ public class CameraActivity extends AppCompatActivity {
 
     public void turnScreenOff() {
         WindowManager.LayoutParams params = getWindow().getAttributes();
-        params.flags |= WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
         params.screenBrightness = .01f;
         getWindow().setAttributes(params);
         isScreenOn = false;
