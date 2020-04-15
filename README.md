@@ -12,10 +12,11 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 ## How to use
 
 
-### Well, here are some gifs that will you a walkthrough:
+### Here are some gifs that will give you a walkthrough:
 
 #### Using your android phone as a *Security Camera*. 
 Using this phone's camera to stream to a remote phone or save video feed locally on this device's storage.
+
 <img src="https://github.com/cannizarro/Suraksha/raw/master/Security.gif" width="320" height="640" />
 
 #### Using your android phone as a *Surveilance Device*. 
