@@ -11,10 +11,12 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 
 ## How to use
 
-### Using your android phone as a *Security Camera*. Using this phone's camera to stream to a remote phone or save video feed locally on this device's storage.
+####Well, here are some gifs that will you a walkthrough:
+
+##### Using your android phone as a *Security Camera*. Using this phone's camera to stream to a remote phone or save video feed locally on this device's storage.
 <img src="https://github.com/cannizarro/Suraksha/raw/master/Security.gif" width="320" height="640" />
 
-### Using your android phone as a *Surveilance Device*. You can watch the live stream of the selected phone among other phones which are set as security cameras. You can also take snapshots of the feed.
+##### Using your android phone as a *Surveilance Device*. You can watch the live stream of the selected phone among other phones which are set as security cameras. You can also take snapshots of the feed.
 <img src="https://github.com/cannizarro/Suraksha/raw/master/Surveillance.gif" width="320" height="570" />
 
 * You can choose between setting up this device as a security camera or a surveillance device (watch the live stream).
@@ -24,8 +26,6 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 Please give any permission you are prompted. It will just ask to access your camera, audio and storage, duh.
 
 This app works with basically any network due to the robust TURN server provided by Xirsys which will help us dodge most of the NATs and firewalls, but still if you don't get any video feed even when you got `Recieved remote stream` toast, maybe there are chances that your network doesn't like P2P connections and your ISP is an asshole, hehehe.
-
-Well, here are some gifs that will you a walkthrough:
 
 
 ## Built With
