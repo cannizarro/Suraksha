@@ -49,4 +49,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-* [Vivek's android codelab for WebRTC](https://github.com/vivek1794/webrtc-android-codelab).
+* [Vivek Chanddru's android codelab for WebRTC](https://github.com/vivek1794/webrtc-android-codelab).
+* [Roberto Leinardi's SpeedDial FAB implementation](https://github.com/leinardi/FloatingActionButtonSpeedDial)
