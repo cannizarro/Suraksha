@@ -12,10 +12,10 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 ## How to use
 
 ### Using your android phone as a *Security Camera*. Using this phone's camera to stream to a remote phone or save video feed locally on this device's storage.
-![Security Camera activity](Security.gif)
+<img src="https://github.com/cannizarro/Suraksha/raw/master/Security.gif" width="320" height="640" />
 
 ### Using your android phone as a *Surveilance Device*. You can watch the live stream of the selected phone among other phones which are set as security cameras. You can also take snapshots of the feed.
-![Surveillance activity](Surveillance.gif)
+<img src="https://github.com/cannizarro/Suraksha/raw/master/Surveillance.gif" width="320" height="570" />
 
 * You can choose between setting up this device as a security camera or a surveillance device (watch the live stream).
 * In security camera mode you can start saving locally or go online after setting the camera's name (unique to this device at any particular time) so that someone logged in with the same google account can view your live feed.
