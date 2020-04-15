@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import com.cannizarro.securitycamera.VideoRecorder.HeadsetPlugReceiver;
+import com.cannizarro.securitycamera.webRTC.APIKeys;
 import com.cannizarro.securitycamera.webRTC.CustomPeerConnectionObserver;
 import com.cannizarro.securitycamera.webRTC.CustomSdpObserver;
 import com.cannizarro.securitycamera.webRTC.IceServer;
@@ -218,7 +219,7 @@ public class SurveilActivity extends AppCompatActivity {
     private void getIceServers() {
         //get Ice servers using xirsys
         byte[] data;
-        data = ("helloworld:15cd7008-7e53-11ea-b54a-0242ac110007").getBytes(StandardCharsets.UTF_8);
+        data = (APIKeys.xirsys).getBytes(StandardCharsets.UTF_8);
 
         String authToken = "Basic " + Base64.encodeToString(data, Base64.NO_WRAP);
         Utils.getInstance().getRetrofitInstance().getIceCandidates(authToken).enqueue(new Callback<TurnServerPojo>() {
