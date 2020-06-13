@@ -11,6 +11,8 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 
 ## How to use
 
+This app can be run on your android device, through android studio, by cloning this repo and then adding the google-services.json file from your own firebase project naming the app suraksha. In your firebase project you have to enable firebase database and google authentication. I also have a class named APIKeys which contains the API key for the Xirsys TURN server channel I am using. So you can also make a developer account on Xirsys for free and put your own API keys in `getIceServer()` method. 
+
 
 ### Here are some gifs that will give you a walkthrough:
 
