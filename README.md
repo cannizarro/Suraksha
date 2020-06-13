@@ -13,11 +13,11 @@ Minimum android SDK supported is 24 so anyone with Android 7.0 (Nougat) and abov
 
 This app can be run on your android device, through android studio, by cloning this repo and then adding the google-services.json file from your own firebase project naming the app suraksha. In your firebase project you have to enable firebase database and google authentication. I also have a class named APIKeys which contains the API key for the Xirsys TURN server channel I am using. So you can also make a developer account on Xirsys for free and put your own API keys in `getIceServer()` method. Feel free to raise an issue.
 
-This repo can be used mainly as a reference for WebRTC and how to capture frames (remote) or record videostream (local) using WebRTC.
+This repo can also be used as a reference for WebRTC and how to capture frames (remote) or record videostream (local) using WebRTC mediastreams.
 
 The WebRTC using Activities are:
-- `[CameraActivity](https://github.com/cannizarro/Suraksha/blob/master/app/src/main/java/com/cannizarro/securitycamera/CameraActivity.java)`: captures a local videostream, which can then be saved locally or live streamed to a remote party.
-- `[SurveilActivity](https://github.com/cannizarro/Suraksha/blob/master/app/src/main/java/com/cannizarro/securitycamera/SurveilActivity.java)`: get live stream from a camera which is online and capture frames of it.
+- <a href = "https://github.com/cannizarro/Suraksha/blob/master/app/src/main/java/com/cannizarro/securitycamera/CameraActivity.java">`CameraActivity`</a>: Captures a local videostream, which can then be saved locally or live streamed to a remote party.
+- <a href="https://github.com/cannizarro/Suraksha/blob/master/app/src/main/java/com/cannizarro/securitycamera/SurveilActivity.java">`SurveilActivity`</a>: get live stream from a camera which is online and capture frames of it.
 
 
 ### Here are some gifs that will give you a walkthrough:
