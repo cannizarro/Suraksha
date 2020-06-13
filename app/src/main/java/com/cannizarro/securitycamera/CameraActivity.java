@@ -10,14 +10,12 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Base64;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -28,6 +26,7 @@ import com.cannizarro.securitycamera.VideoRecorder.CustomVideoRecorder;
 import com.cannizarro.securitycamera.webRTC.APIKeys;
 import com.cannizarro.securitycamera.webRTC.CustomPeerConnectionObserver;
 import com.cannizarro.securitycamera.webRTC.CustomSdpObserver;
+import com.cannizarro.securitycamera.webRTC.FirebaseSignalling;
 import com.cannizarro.securitycamera.webRTC.IceServer;
 import com.cannizarro.securitycamera.webRTC.SDP;
 import com.cannizarro.securitycamera.webRTC.TurnServerPojo;
@@ -36,11 +35,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
-import com.google.firebase.database.ChildEventListener;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.leinardi.android.speeddial.SpeedDialActionItem;
 import com.leinardi.android.speeddial.SpeedDialView;
 
@@ -77,7 +71,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 
-public class CameraActivity extends AppCompatActivity {
+public class CameraActivity extends AppCompatActivity implements FirebaseSignalling.SignallingInterface {
 
     final String TAG = "CameraActivity";
     final int ALL_PERMISSIONS_CODE = 1;
@@ -118,10 +112,7 @@ public class CameraActivity extends AppCompatActivity {
     FloatingActionButton backButton;
     private Button captureButton, screenOffButton, onlineButton;
 
-    FirebaseDatabase firebaseDatabase;
-    DatabaseReference insideCameraRef;
-    ChildEventListener listener;
-
+    FirebaseSignalling signallingClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,7 +122,7 @@ public class CameraActivity extends AppCompatActivity {
         Intent intent = getIntent();
         username = intent.getStringExtra("username");
 
-        firebaseDatabase = FirebaseDatabase.getInstance();
+        signallingClient = new FirebaseSignalling();
 
         rootEglBase = EglBase.create();
 
@@ -184,15 +175,14 @@ public class CameraActivity extends AppCompatActivity {
                     if (videoCapturerAndroid != null && recordingQuality != 720) {
                         videoCapturerAndroid.changeCaptureFormat(1024, 720, 30);
                         recordingQuality = 720;
-                        captureButton.setText("Record " + recordingQuality);
                     }
                     break;
                 case R.id.fab_action_sd:
                     if (videoCapturerAndroid != null && recordingQuality != 480) {
                         videoCapturerAndroid.changeCaptureFormat(720, 480, 30);
                         recordingQuality = 480;
-                        captureButton.setText("Record " + recordingQuality);
                     }
+                    captureButton.setText("Record " + recordingQuality);
                     break;
             }
 
@@ -224,7 +214,6 @@ public class CameraActivity extends AppCompatActivity {
 
             //All permissions are not granted
             finish();
-        } else {
             Toast.makeText(this, "Required permissions are not granted.", Toast.LENGTH_SHORT).show();
         }
     }
@@ -235,7 +224,6 @@ public class CameraActivity extends AppCompatActivity {
 
         if (isStarted) {
             hangup();
-
             localVideoView.setKeepScreenOn(false);
             onlineButton.setText(R.string.online);
             onlineButton.setBackgroundColor(getResources().getColor(R.color.colorPrimary, getResources().newTheme()));
@@ -397,11 +385,11 @@ public class CameraActivity extends AppCompatActivity {
                     .setView(textInputLayout)
                     .setPositiveButton("OK", (dialogInterface, i) -> {
                         cameraName = input.getText().toString();
-                        insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
+                        signallingClient.setReference("/" + username + "/" + cameraName);
 
                         onTryToStart();
 
-                        attachReadListener();
+                        signallingClient.attachReadListener(this, cameraName);
                         showSnackBar("Camera name set", Snackbar.LENGTH_LONG);
                         onlineButton.setText("Stop " + cameraName);
                         onlineButton.setBackgroundColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()));
@@ -431,9 +419,7 @@ public class CameraActivity extends AppCompatActivity {
                 public void afterTextChanged(Editable editable) {
                 }
             });
-
             dialog.show();
-
         }
     }
 
@@ -521,19 +507,53 @@ public class CameraActivity extends AppCompatActivity {
     /**
      * Called when remote peer sends answer to your offer
      */
+    @Override
     public void onAnswerReceived(SDP data) {
         showSnackBar("Streamer added", Snackbar.LENGTH_LONG);
         localPeer.setRemoteDescription(new CustomSdpObserver("localSetRemote"), new SessionDescription(SessionDescription.Type.fromCanonicalForm(data.type.toLowerCase()), data.sdp));
-
     }
 
     /**
      * Remote IceCandidate received
      */
+    @Override
     public void onIceCandidateReceived(SDP data) {
 
         localPeer.addIceCandidate(new IceCandidate(data.id, data.label, data.candidate));
 
+    }
+
+    // Dummy
+    @Override
+    public void onOfferReceived(SDP data) { }
+
+    /**
+     * Pushing ice candidates to firebase.
+     */
+    public void emitIceCandidate(IceCandidate iceCandidate, String username) {
+
+        SDP object = new SDP(iceCandidate, username);
+        signallingClient.push(object);
+
+    }
+
+    /**
+     * Pushing the sesion description onto firebase.
+     */
+    public void emitMessage(SessionDescription message, String username) {
+
+        Log.d("CameraActivity", "emitMessage() called with: message = [" + message + "]");
+        SDP object = new SDP(message, username);
+        signallingClient.push(object);
+    }
+
+    @Override
+    public void disconnect(){
+        showSnackBar("Streamer Disconnected", Snackbar.LENGTH_LONG);
+        hangup();
+        signallingClient.setReference("/" + username + "/" + cameraName);
+        onTryToStart();
+        signallingClient.attachReadListener(this, cameraName);
     }
 
     /**
@@ -552,90 +572,17 @@ public class CameraActivity extends AppCompatActivity {
 
 
     /**
-     * Pushing ice candidates to firebase.
-     */
-    public void emitIceCandidate(IceCandidate iceCandidate, String username) {
-
-        SDP object = new SDP(iceCandidate, username);
-        insideCameraRef.push().setValue(object);
-
-    }
-
-    /**
-     * Pushing the sesion description onto firebase.
-     */
-    public void emitMessage(SessionDescription message, String username) {
-
-        Log.d("CameraActivity", "emitMessage() called with: message = [" + message + "]");
-        SDP object = new SDP(message, username);
-
-        insideCameraRef.push().setValue(object, (databaseError, databaseReference) -> {
-        });
-    }
-
-    /**
      * Detaching the read listener
      */
     public void close() {
-        detachReadListener();
-        if (insideCameraRef != null)
-            insideCameraRef.setValue(null);
+        signallingClient.detachReadListener();
+        signallingClient.deleteReference();
     }
 
-    /**
-     * Attaching read listener to the inside camera reference.
-     */
-    public void attachReadListener() {
-        if (listener == null) {
-            listener = new ChildEventListener() {
-                @Override
-                public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-                    SDP object = dataSnapshot.getValue(SDP.class);
-
-                    if (object != null && !object.username.equals(cameraName)) {
-
-                        Log.d("CameraActivity", "Children added :: " + object.toString());
-                        String type = object.type;
-                        if (type.equalsIgnoreCase("answer") && isStarted) {
-                            onAnswerReceived(object);
-                        } else if (type.equalsIgnoreCase("candidate") && isStarted) {
-                            onIceCandidateReceived(object);
-                        }
-                    }
-                }
-
-                @Override
-                public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-                }
-
-                @Override
-                public void onChildRemoved(@NonNull DataSnapshot dataSnapshot) {
-                    showSnackBar("Streamer Disconnected", Snackbar.LENGTH_LONG);
-                    hangup();
-                    insideCameraRef = firebaseDatabase.getReference("/" + username + "/" + cameraName);
-                    onTryToStart();
-                    attachReadListener();
-                }
-
-                @Override
-                public void onChildMoved(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError databaseError) {
-                }
-            };
-            insideCameraRef.addChildEventListener(listener);
-        }
+    @Override
+    public boolean getisStarted(){
+        return isStarted;
     }
-
-    public void detachReadListener() {
-        if (listener != null) {
-            insideCameraRef.removeEventListener(listener);
-            listener = null;
-        }
-    }
-
     /**
      * When this method is called:
      * if isRecording is true then recording will stop
@@ -665,7 +612,7 @@ public class CameraActivity extends AppCompatActivity {
                 }
 
                 // inform the user that recording has started
-                captureButton.setText("Stop " + recordingQuality);
+                captureButton.setText(R.string.stop);
                 captureButton.setBackgroundColor(getResources().getColor(R.color.colorSecondary, getResources().newTheme()));
                 isRecording = true;
             }

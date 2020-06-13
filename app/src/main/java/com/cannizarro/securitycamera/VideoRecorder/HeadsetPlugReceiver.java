@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
-import android.util.Log;
 
 import java.util.Objects;
 
@@ -12,6 +11,14 @@ import java.util.Objects;
 public class HeadsetPlugReceiver extends BroadcastReceiver {
 
     AudioManager audioManager;
+
+    public HeadsetPlugReceiver(Context context) {
+        audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        //noinspection ConstantConditions
+        audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        setSpeakerphoneOn(true);
+    }
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -21,23 +28,15 @@ public class HeadsetPlugReceiver extends BroadcastReceiver {
 
         boolean connectedHeadphones = (intent.getIntExtra("state", 0) == 1);
         // boolean connectedMicrophone = (intent.getIntExtra("microphone", 0) == 1) && connectedHeadphones;
-        //String headsetName = intent.getStringExtra("name");
-
-        if (audioManager == null) {
-            audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-            //noinspection ConstantConditions
-            audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        }
+        // String headsetName = intent.getStringExtra("name");
 
         if (connectedHeadphones) {
-            Log.d("Hello", "connected headset");
+            // headset connected
             setSpeakerphoneOn(false);
         } else {
-            Log.d("Hello", "disconnected headset");
+            // headset disconnected
             setSpeakerphoneOn(true);
         }
-
     }
 
     /**
@@ -50,5 +49,4 @@ public class HeadsetPlugReceiver extends BroadcastReceiver {
         }
         audioManager.setSpeakerphoneOn(on);
     }
-
 }
